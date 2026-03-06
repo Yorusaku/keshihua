@@ -1,0 +1,16 @@
+{
+  "name": "@keshihua/typescript-config",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./tsconfig.base.json",
+  "exports": {
+    ".": {
+      "types": "./tsconfig.base.json",
+      "default": "./tsconfig.base.json"
+    }
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}

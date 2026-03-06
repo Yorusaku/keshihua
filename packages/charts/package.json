@@ -1,0 +1,42 @@
+{
+  "name": "@packages/charts",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/zrender/index.ts",
+  "types": "./src/zrender/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/zrender/index.ts",
+      "import": "./src/zrender/index.ts"
+    },
+    "./zrender": "./src/zrender/index.ts",
+    "./echarts": {
+      "types": "./src/echarts/index.ts",
+      "import": "./src/echarts/index.ts"
+    }
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc --build",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@packages/shared": "workspace:*"
+  },
+  "peerDependencies": {
+    "zrender": "^5.6.0"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.8",
+    "@vue/test-utils": "^2.4.6",
+    "vue": "^3.5.13",
+    "jsdom": "^25.0.1",
+    "echarts": "^5.5.0",
+    "@vueuse/core": "^12.0.0",
+    "@vitejs/plugin-vue": "^5.1.0"
+  }
+}

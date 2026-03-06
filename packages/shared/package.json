@@ -1,0 +1,14 @@
+{
+  "name": "@packages/shared",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc --build"
+  },
+  "dependencies": {
+    "@tanstack/vue-query": "^5.92.9"
+  }
+}

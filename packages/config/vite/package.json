@@ -1,0 +1,20 @@
+{
+  "name": "@keshihua/vite-config",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./vite.config.base.ts",
+  "types": "./vite.config.base.ts",
+  "exports": {
+    ".": {
+      "types": "./vite.config.base.ts",
+      "import": "./vite.config.base.ts",
+      "default": "./vite.config.base.ts"
+    }
+  },
+  "dependencies": {
+    "vite": "^5.4.8",
+    "typescript": "^5.7.2",
+    "vue": "^3.4.38"
+  }
+}

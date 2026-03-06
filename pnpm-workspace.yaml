@@ -1,0 +1,6 @@
+pnpm:
+  workspace_conegrity: false
+
+packages:
+  - "apps/*"
+  - "packages/**/*"

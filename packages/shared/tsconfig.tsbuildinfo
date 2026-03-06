@@ -1,0 +1,1 @@
+{"root":["./src/network/index.ts","./src/network/queryclient.ts","./src/network/types.ts","./src/network/queries/capacity.ts","./src/network/queries/usecapacityquery.ts","./src/websocket/databuffer.ts","./src/websocket/index.ts","./src/websocket/types.ts"],"version":"5.9.3"}
