@@ -1,9 +1,9 @@
 <!-- Header.vue 顶部导航栏 -->
-<!-- 阶段：🟣 重构阶段（配置化驱动） -->
+<!-- 阶段：🟣 纠偏阶段（Ant Design Vue） -->
 
 <script setup lang="ts">
 import { useBreadcrumb } from '@/composables';
-import { ArrowDown } from '@element-plus/icons-vue';
+import { RightOutlined } from '@ant-design/icons-vue';
 
 const { breadcrumbList } = useBreadcrumb();
 
@@ -16,30 +16,28 @@ const handleLogout = () => {
 <template>
   <header class="header">
     <!-- 面包屑 - 动态渲染 -->
-    <el-breadcrumb class="header__breadcrumb">
-      <el-breadcrumb-item :to="{ path: '/' }">首页</el-breadcrumb-item>
-      <el-breadcrumb-item
-        v-for="item in breadcrumbList"
-        :key="item.path"
-        :to="{ path: item.path }"
-      >
-        {{ item.title }}
-      </el-breadcrumb-item>
-    </el-breadcrumb>
+    <a-breadcrumb class="header__breadcrumb">
+      <a-breadcrumb-item>
+        <a href="/">首页</a>
+      </a-breadcrumb-item>
+      <a-breadcrumb-item v-for="item in breadcrumbList" :key="item.path">
+        <a :href="item.path">{{ item.title }}</a>
+      </a-breadcrumb-item>
+    </a-breadcrumb>
 
     <!-- 用户菜单 -->
-    <el-dropdown class="header__user" @command="handleLogout">
+    <a-dropdown class="header__user" :trigger="['click']" @menu:click="handleLogout">
       <span class="user__trigger">
-        <el-avatar :size="32" src="https://i.pravatar.cc/100?img=12" />
+        <a-avatar :size="32" src="https://i.pravatar.cc/100?img=12" />
         <span class="user__name">管理员</span>
-        <el-icon class="user__arrow"><ArrowDown /></el-icon>
+        <RightOutlined class="user__arrow" />
       </span>
-      <template #dropdown>
-        <el-dropdown-menu>
-          <el-dropdown-item command="logout">退出登录</el-dropdown-item>
-        </el-dropdown-menu>
+      <template #overlay>
+        <a-menu>
+          <a-menu-item key="logout">退出登录</a-menu-item>
+        </a-menu>
       </template>
-    </el-dropdown>
+    </a-dropdown>
   </header>
 </template>
 

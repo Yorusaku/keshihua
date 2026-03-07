@@ -1,9 +1,10 @@
 <!-- Sidebar.vue 侧边栏菜单 -->
-<!-- 阶段：🟣 重构阶段（配置化驱动） -->
+<!-- 阶段：🟣 纠偏阶段（Ant Design Vue） -->
 
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useRouter } from 'vue-router';
+import { MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons-vue';
 import type { AppRouteRecordRaw } from '@/types';
 
 interface SidebarProps {
@@ -46,42 +47,44 @@ const menuItems = computed(() => {
 </script>
 
 <template>
-  <el-aside :width="collapsed ? '64px' : '240px'" class="sidebar">
+  <a-layout-sider
+    :width="collapsed ? '64px' : '240px'"
+    class="sidebar"
+    :collapsible="true"
+    :collapsed="collapsed"
+    :trigger="null"
+  >
     <!-- Logo -->
     <div class="sidebar__logo">
-      <el-icon :size="32"><Operation /></el-icon>
+      <MenuFoldOutlined v-if="collapsed" :style="{ fontSize: '32px', color: '#fff' }" />
+      <MenuUnfoldOutlined v-else :style="{ fontSize: '32px', color: '#fff' }" />
     </div>
 
     <!-- 菜单 - 动态渲染 -->
-    <el-menu
-      :default-active="$route.path"
-      :collapse="collapsed"
-      :router="true"
-      background-color="#304156"
-      text-color="#bfcbd9"
-      active-text-color="#409eff"
+    <a-menu
+      :default-selected-keys="[$route.path]"
+      :mode="collapsed ? 'vertical' : 'inline'"
+      theme="dark"
+      :items="menuItems"
+      style="border-right: 0"
     >
-      <el-menu-item
-        v-for="item in menuItems"
-        :key="item.path"
-        :index="item.path"
-      >
-        <el-icon v-if="item.icon"><component :is="item.icon" /></el-icon>
-        <template #title>{{ item.title }}</template>
-      </el-menu-item>
-    </el-menu>
-  </el-aside>
+      <template #icon="{ icon }">
+        <component :is="icon" v-if="icon" />
+      </template>
+    </a-menu>
+  </a-layout-sider>
 </template>
 
 <style scoped>
 .sidebar {
   height: 100vh;
-  background-color: #304156;
+  background-color: #001529;
   flex-shrink: 0;
 }
 
 .sidebar__logo {
   padding: 20px;
   text-align: center;
+  color: #fff;
 }
 </style>

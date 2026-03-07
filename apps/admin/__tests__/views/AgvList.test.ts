@@ -53,7 +53,7 @@ describe('AgvList', () => {
   it('组件正确挂载', () => {
     const wrapper = mount(AgvList, {
       global: {
-        stubs: ['ElCard', 'ElTable', 'ElTableRow', 'ElTableColumn', 'ElTag', 'ElIcon'],
+        stubs: ['ACard', 'ATable', 'ALoading'],
       },
     });
 
@@ -68,7 +68,7 @@ describe('AgvList', () => {
   it('正确调用 DataBuffer 获取数据', () => {
     const wrapper = mount(AgvList, {
       global: {
-        stubs: ['ElCard', 'ElTable', 'ElTableRow', 'ElTableColumn', 'ElTag', 'ElIcon'],
+        stubs: ['ACard', 'ATable', 'ALoading'],
       },
     });
 

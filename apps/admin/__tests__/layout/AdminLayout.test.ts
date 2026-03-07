@@ -15,21 +15,19 @@ import { AdminLayout } from '@/layout';
 import { AgvList } from '@/views';
 
 /**
- * 🚨 必须 stub 的 Element Plus 组件
- * @description 避免 unplugin-vue-components 在 Vitest 环境下的缺失报错
+ * 🚨 必须 stub 的 Ant Design Vue 组件
+ * @description 避免组件在 Vitest 环境下的缺失报错
  */
-const elementPlusStubs = [
-  'el-aside',
-  'el-menu',
-  'el-menu-item',
-  'el-header',
-  'el-breadcrumb',
-  'el-breadcrumb-item',
-  'el-dropdown',
-  'el-dropdown-menu',
-  'el-dropdown-item',
-  'el-avatar',
-  'el-icon',
+const antdStubs = [
+  'a-layout-sider',
+  'a-menu',
+  'a-menu-item',
+  'a-layout-header',
+  'a-breadcrumb',
+  'a-breadcrumb-item',
+  'a-dropdown',
+  'a-menu-overlay',
+  'a-avatar',
 ];
 
 /**
@@ -77,7 +75,7 @@ describe('AdminLayout', () => {
       global: {
         plugins: [router],
         stubs: {
-          ...elementPlusStubs,
+          ...antdStubs,
           // Stub 本地组件
           ...localStubs,
         },
@@ -103,7 +101,7 @@ describe('AdminLayout', () => {
       global: {
         plugins: [router],
         stubs: {
-          ...elementPlusStubs,
+          ...antdStubs,
           ...localStubs,
         },
       },
@@ -126,7 +124,7 @@ describe('AdminLayout', () => {
     const wrapper = mount(AgvList, {
       global: {
         plugins: [router],
-        stubs: ['ElCard', 'ElTable', 'ElTableRow', 'ElTableColumn', 'ElTag', 'ElIcon'],
+        stubs: ['ACard', 'ATable', 'ALoading'],
       },
     });
 

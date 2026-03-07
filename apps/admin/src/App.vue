@@ -1,13 +1,12 @@
 <!-- App.vue 根组件 -->
-<!-- 阶段：🔴 红灯阶段（占位文件） -->
+<!-- 阶段：🟣 纠偏阶段（Ant Design Vue） -->
 
 <script setup lang="ts">
-// @ts-ignore - 红灯阶段暂不实现
-import { AdminLayout } from '@/layout';
+// ✅ 使用 router-view 替代硬编码的 AdminLayout
 </script>
 
 <template>
-  <AdminLayout />
+  <router-view />
 </template>
 
 <style>

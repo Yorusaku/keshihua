@@ -1,10 +1,11 @@
 <!-- AgvList.vue AGV 车辆管理 -->
-<!-- 阶段：🟢 绿灯阶段（完整实现） -->
+<!-- 阶段：🟣 纠偏阶段（Ant Design Vue） -->
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { DataBuffer } from '@packages/shared';
 import type { IAgvData } from '@packages/shared';
+import { LoadingOutlined } from '@ant-design/icons-vue';
 
 const loading = ref(false);
 const agvList = ref<IAgvData[]>([]);
@@ -21,40 +22,56 @@ onMounted(async () => {
     loading.value = false;
   }
 });
+
+/**
+ * 📌 表格列配置
+ */
+const columns = [
+  {
+    title: 'ID',
+    dataIndex: 'id',
+    width: 100,
+  },
+  {
+    title: 'X 坐标',
+    dataIndex: 'x',
+    width: 120,
+  },
+  {
+    title: 'Y 坐标',
+    dataIndex: 'y',
+    width: 120,
+  },
+  {
+    title: '状态',
+    dataIndex: 'status',
+    width: 120,
+  },
+];
+
+/**
+ * 📌 行渲染函数
+ */
+const rowKey = (record: IAgvData) => record.id;
 </script>
 
 <template>
   <div class="agv-list">
-    <el-card>
-      <template #header>
-        <div class="card-header">
-          <span>AGV 车辆管理</span>
-        </div>
-      </template>
+    <a-card>
+      <template #title>AGV 车辆管理</template>
 
-      <el-table
-        v-loading="loading"
-        :data="agvList"
-        stripe
-        style="width: 100%"
-      >
-        <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="x" label="X 坐标" width="100" />
-        <el-table-column prop="y" label="Y 坐标" width="100" />
-        <el-table-column prop="status" label="状态" width="100" />
-      </el-table>
-    </el-card>
+      <a-table
+        v-loading:loading="loading"
+        :data-source="agvList"
+        :columns="columns"
+        :row-key="rowKey"
+        :pagination="false"
+        :scroll="{ x: 'max-content' }"
+        size="middle"
+      />
+    </a-card>
   </div>
 </template>
-
-<script lang="ts">
-// 状态映射（仅保留，不使用）
-const AGV_STATUS_MAP = {
-  idle: { text: '空闲', type: 'success' },
-  moving: { text: '移动中', type: 'primary' },
-  error: { text: '错误', type: 'danger' },
-};
-</script>
 
 <style scoped>
 .agv-list {

@@ -1,5 +1,5 @@
 <!-- AdminLayout.vue 主布局骨架 -->
-<!-- 阶段：🟢 绿灯阶段（完整实现） -->
+<!-- 阶段：🟣 纠偏阶段（Ant Design Vue） -->
 
 <script setup lang="ts">
 // Props（预留扩展）
@@ -52,6 +52,6 @@ withDefaults(defineProps<AdminLayoutProps>(), {
   flex: 1;
   padding: 20px;
   overflow-y: auto;
-  background-color: #f5f7fa;
+  background-color: #f0f2f5;
 }
 </style>
