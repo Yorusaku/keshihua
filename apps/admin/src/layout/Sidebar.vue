@@ -1,5 +1,5 @@
 <!-- Sidebar.vue 侧边栏菜单 -->
-<!-- 阶段：🔴 红灯阶段（占位文件） -->
+<!-- 阶段：🟢 绿灯阶段（完整实现） -->
 
 <script setup lang="ts">
 interface SidebarProps {
@@ -20,16 +20,16 @@ withDefaults(defineProps<SidebarProps>(), {
 
     <!-- 菜单 -->
     <el-menu
-      :default-active="activeMenu"
+      :default-active="$route.path"
       :collapse="collapsed"
       :router="true"
       background-color="#304156"
       text-color="#bfcbd9"
       active-text-color="#409eff"
     >
-      <el-menu-item index="/">
-        <el-icon><HomeFilled /></el-icon>
-        <template #title>首页</template>
+      <el-menu-item index="/agv">
+        <el-icon><Position /></el-icon>
+        <template #title>AGV 车辆管理</template>
       </el-menu-item>
     </el-menu>
   </el-aside>
@@ -39,6 +39,7 @@ withDefaults(defineProps<SidebarProps>(), {
 .sidebar {
   height: 100vh;
   background-color: #304156;
+  flex-shrink: 0;
 }
 
 .sidebar__logo {

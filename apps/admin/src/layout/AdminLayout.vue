@@ -1,5 +1,5 @@
 <!-- AdminLayout.vue 主布局骨架 -->
-<!-- 阶段：🔴 红灯阶段（占位文件） -->
+<!-- 阶段：🟢 绿灯阶段（完整实现） -->
 
 <script setup lang="ts">
 // Props（预留扩展）
@@ -38,6 +38,7 @@ withDefaults(defineProps<AdminLayoutProps>(), {
 .admin-layout {
   display: flex;
   height: 100vh;
+  overflow: hidden;
 }
 
 .admin-layout__main {

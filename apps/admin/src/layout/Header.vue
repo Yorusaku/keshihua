@@ -1,5 +1,5 @@
 <!-- Header.vue 顶部导航栏 -->
-<!-- 阶段：🔴 红灯阶段（占位文件） -->
+<!-- 阶段：🟢 绿灯阶段（完整实现） -->
 
 <script setup lang="ts">
 import { computed } from 'vue';

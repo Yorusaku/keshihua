@@ -1,6 +1,6 @@
 /**
  * Vitest 配置文件
- * 阶段：🔴 红灯阶段（占位文件）
+ * 阶段：🟢 绿灯阶段（完整实现）
  */
 
 import { defineConfig } from 'vitest/config';
@@ -9,22 +9,25 @@ import path from 'path';
 
 /**
  * Vitest 配置
- * @description 重点：stub Element Plus 组件，避免 unplugin-vue-components 报错
+ * @description 重点：stub Element Plus 组件，正确解析 @packages/shared 和 @
  */
 export default defineConfig({
   plugins: [vue()],
 
   resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
-      '@packages': path.resolve(__dirname, '../..'),
-    },
+    alias: [
+      { find: '@', replacement: path.resolve(__dirname, './src') },
+      {
+        find: '@packages/shared',
+        replacement: path.resolve(__dirname, './__mocks__/@packages/shared.ts'),
+      },
+    ],
   },
 
   test: {
     globals: true,
     environment: 'jsdom',
-    setupFiles: ['./src/test/setup.ts'],
-    include: ['**/*.test.ts'],
+    setupFiles: ['__tests__/setup.ts'],
+    include: ['__tests__/**/*.test.ts'],
   },
 });
