@@ -1,39 +1,46 @@
 /**
  * 队列与上报器
  * 文件路径：packages/monitor/src/transport.ts
- * 阶段：🟢 绿灯阶段（业务实现）
+ * 阶段：🟣 重构阶段（常量抽离 + SSR 防御）
  */
 
 import type { ReportData } from './types';
+import {
+  DEFAULT_FLUSH_INTERVAL,
+  DEFAULT_MAX_QUEUE_SIZE,
+} from './constants';
 
 /**
  * 📌 Reporter 配置
+ * @description 初始化 Reporter 所需的参数配置
  */
 export interface ReporterOptions {
   /**
-   * 📌 上报地址
+   * 📌 上报地址（DSN：Data Source Name）
+   * @example '/api/report' 或 'https://monitor.example.com/api/report'
    */
   dsn: string;
 
   /**
    * 📌 应用标识
+   * @example 'admin' 或 'dashboard'
    */
   appId: string;
 
   /**
    * 📌 批量上报间隔（毫秒）
-   * @default 5000
+   * @default DEFAULT_FLUSH_INTERVAL (5000ms)
    */
   flushInterval?: number;
 
   /**
    * 📌 队列最大缓存数量
-   * @default 100
+   * @default DEFAULT_MAX_QUEUE_SIZE (100)
    */
   maxQueueSize?: number;
 
   /**
-   * 📌 是否启用调试模式
+   * 📌 是否启用调试模式（打印日志）
    * @default false
    */
   debug?: boolean;
@@ -60,13 +67,15 @@ export class Reporter {
 
   /**
    * 📌 构造函数
+   * @param options Reporter 配置项
+   * @description 构建 Reporter 实例并启动批量上报定时器
    */
   constructor(options: ReporterOptions) {
     this.dsn = options.dsn;
     this.appId = options.appId;
-    this.flushInterval = options.flushInterval || 5000;
-    this.maxQueueSize = options.maxQueueSize || 100;
-    this.debug = options.debug || false;
+    this.flushInterval = options.flushInterval ?? DEFAULT_FLUSH_INTERVAL;
+    this.maxQueueSize = options.maxQueueSize ?? DEFAULT_MAX_QUEUE_SIZE;
+    this.debug = options.debug ?? false;
 
     // ✅ 启动批量上报定时器
     this.startFlushTimer();
@@ -151,8 +160,14 @@ export class Reporter {
    *  2. 使用 Blob 包装（sendBeacon 需要）
    *  3. 调用 navigator.sendBeacon
    *  4. 返回成功/失败状态
+   * @note 在 SSR/Node.js 环境下，navigator 可能未定义，此方法会返回 false 并降级
    */
   private sendWithBeacon(batch: ReportData[]): boolean {
+    // ✅ SSR 防御：确保 window 和 navigator 可用
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+      return false;
+    }
+
     try {
       const payload = JSON.stringify(batch);
       const blob = new Blob([payload], { type: 'application/json' });
@@ -181,8 +196,14 @@ export class Reporter {
    *  2. 使用 fetch 发送 POST 请求
    *  3. 设置 keepalive: true（保证页面卸载时仍可发送）
    *  4. 设置 headers: 'application/json'
+   * @note 在 SSR/Node.js 环境下，fetch 可能未定义，此方法会静默失败
    */
   private sendWithFetch(batch: ReportData[]): void {
+    // ✅ SSR 防御：确保 window 和 fetch 可用
+    if (typeof window === 'undefined' || typeof fetch === 'undefined') {
+      return;
+    }
+
     const payload = JSON.stringify(batch);
 
     // ✅ 使用 fetch 发送请求（keepalive: true）

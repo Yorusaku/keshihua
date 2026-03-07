@@ -1,25 +1,30 @@
 /**
  * SDK 入口
  * 文件路径：packages/monitor/src/index.ts
- * 阶段：🟢 绿灯阶段（业务实现）
+ * 阶段：🟣 重构阶段（常量抽离 + SSR 防御 + TSDoc 补全）
  */
 
 import { Reporter, type ReporterOptions } from './transport';
-import { setupErrorCatch, type ErrorPluginOptions } from './plugins/error';
+import {
+  setupErrorCatch,
+  type ErrorPluginOptions,
+} from './plugins/error';
 import { setupPerformanceCatch } from './plugins/performance';
-import type { MonitorOptions } from './types';
 
 /**
  * 📌 Monitor 配置（合并了 Reporter 和 Plugin 配置）
+ * @description 初始化 SDK 所需的完整配置项
  */
 export interface MonitorConfig {
   /**
-   * 📌 上报地址
+   * 📌 上报地址（DSN：Data Source Name）
+   * @example '/api/report' 或 'https://monitor.example.com/api/report'
    */
   dsn: string;
 
   /**
    * 📌 应用标识
+   * @example 'admin' 或 'dashboard'
    */
   appId: string;
 
@@ -29,11 +34,13 @@ export interface MonitorConfig {
   reporter?: {
     /**
      * 📌 批量上报间隔（毫秒）
+     * @default 5000
      */
     flushInterval?: number;
 
     /**
      * 📌 队列最大缓存数量
+     * @default 100
      */
     maxQueueSize?: number;
   };
@@ -46,11 +53,12 @@ export interface MonitorConfig {
   /**
    * 📌 是否启用性能收集
    * @default true
+   * @description 启用后会采集 FCP（First Contentful Paint）指标
    */
   performance?: boolean;
 
   /**
-   * 📌 是否启用调试模式
+   * 📌 是否启用调试模式（打印日志）
    * @default false
    */
   debug?: boolean;
@@ -58,10 +66,15 @@ export interface MonitorConfig {
 
 /**
  * 📌 SDK 实例
+ * @description 初始化 SDK 后返回的实例，用于控制 SDK 生命周期
  */
 interface MonitorInstance {
   /**
    * 📌 关闭 SDK（停止所有采集）
+   * @description
+   *  1. 清空 Reporter 定时器
+   *  2. 上报队列中剩余的数据
+   *  3. 停止所有事件监听
    */
   close: () => void;
 }
@@ -75,8 +88,30 @@ interface MonitorInstance {
  *  2. 注册错误收集器（JS + Promise）
  *  3. 注册性能收集器（FCP）
  *  4. 返回 Monitor 实例（用于关闭 SDK）
+ * @note 本函数具有 SSR 防御能力，在 Node.js/SSR 环境下会静默返回，不会抛出错误
+ * @note 建议在应用入口的 createApp 之前调用此函数
+ * @example
+ * ```ts
+ * import { initMonitor } from '@packages/monitor';
+ *
+ * initMonitor({
+ *   dsn: '/api/report',
+ *   appId: 'admin',
+ *   performance: true,
+ *   debug: import.meta.env.DEV,
+ * });
+ * ```
  */
 export function initMonitor(config: MonitorConfig): MonitorInstance {
+  // ✅ SSR 防御：确保 window 可用（虽然 SDK 主要在浏览器运行）
+  if (typeof window === 'undefined') {
+    return {
+      close: () => {
+        // 静默返回
+      },
+    };
+  }
+
   // ✅ 构建 Reporter 配置
   const reporterOptions: ReporterOptions = {
     dsn: config.dsn,
