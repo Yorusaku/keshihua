@@ -1,11 +1,13 @@
 /**
  * Router 实例配置
- * 阶段：🟢 绿灯阶段（完整实现）
+ * 阶段：🟣 精简重构（按需加载）
  */
 
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router';
 import { AdminLayout } from '@/layout';
 import { AgvList } from '@/views';
+// ✅ 只按需引入用到的图标
+import { AimOutlined } from '@ant-design/icons-vue';
 
 /**
  * 静态路由配置
@@ -25,7 +27,8 @@ const routes: RouteRecordRaw[] = [
         component: AgvList,
         meta: {
           title: 'AGV 车辆管理',
-          icon: 'Position',
+          // ✅ 直接把组件对象传给 meta
+          icon: AimOutlined,
         },
       },
     ],
