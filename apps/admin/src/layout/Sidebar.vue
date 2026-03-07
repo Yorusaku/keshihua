@@ -3,7 +3,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRouter } from 'vue-router';
 import type { AppRouteRecordRaw } from '@/types';
 
 interface SidebarProps {
@@ -14,28 +14,34 @@ const props = withDefaults(defineProps<SidebarProps>(), {
   collapsed: false,
 });
 
-const route = useRoute();
+const router = useRouter();
 
 /**
- * 📌 从路由配置中动态生成菜单项
- * @description 过滤掉重定向和无关路由，只保留需要显示在侧边栏的路由
+ * 📌 从全局路由配置中动态生成菜单项
+ * @description 读取 router.options.routes，自动解析出需要显示的菜单
  */
 const menuItems = computed(() => {
-  // 从 router 实例获取路由配置
-  const routes = (route.matched as any[])
-    .map((match) => match.route as AppRouteRecordRaw)
-    .filter((r) => r.path === '/agv' || r.path === '/')
-    .flatMap((r) => r.children || []);
+  const routes = router.options.routes as AppRouteRecordRaw[];
 
-  // 过滤掉 hidden 的路由，并转换为菜单项
-  return routes
+  // 1. 找到包含子路由的主 Layout 路由
+  const layoutRoute = routes.find((r) => r.children && r.children.length > 0);
+
+  if (!layoutRoute || !layoutRoute.children) return [];
+
+  // 2. 遍历子路由生成菜单
+  return layoutRoute.children
     .filter((child) => !child.meta?.hidden)
-    .map((child) => ({
-      path: child.path,
-      title: child.meta?.title || '未知菜单',
-      icon: child.meta?.icon,
-    }))
-    .sort((a, b) => (a.path === '/agv' ? -1 : 1));
+    .map((child) => {
+      // 处理相对路径和绝对路径的拼接
+      const fullPath = child.path === '' ? layoutRoute.path : `${layoutRoute.path}/${child.path}`;
+      return {
+        path: fullPath,
+        title: child.meta?.title || '未知菜单',
+        icon: child.meta?.icon,
+        meta: child.meta,
+      };
+    })
+    .sort((a, b) => ((a.meta?.weight || 0) - (b.meta?.weight || 0)));
 });
 </script>
 
