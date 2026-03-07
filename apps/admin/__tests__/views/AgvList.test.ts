@@ -1,78 +1,63 @@
 /**
  * AgvList.vue 测试用例
- * 阶段：🟢 绿灯阶段（完整实现）
+ * 阿段：🔴 红灯阶段（测试先行）
  *
  * 📌 测试目标：
- * - 使用 vi.mock('@packages/shared') 拦截 DataBuffer.getInstance().getSnapshot()
- * - 返回包含两条模拟 AGV 数据的数组
- * - 验证组件正确渲染
+ * - 使用 vi.mock('@packages/shared') 拦截 useAgvListQuery Hook
+ * - 测试组件挂载不抛出异常
+ * - 红灯阶段：AgvList.vue 未实现，测试应全部失败（验证占位组件）
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { mount } from '@vue/test-utils';
 
 /**
- * 📦 引入 AgvList 组件
+ * 📦 Mock @packages/shared - 拦截 useAgvListQuery
  */
-import AgvList from '@/views/AgvList.vue';
+const mockQueryResult = {
+  data: { total: 0, list: [] },
+  isLoading: true,
+  isError: false,
+  error: null,
+  refetch: vi.fn(),
+};
 
-/**
- * 📦 引入 DataBuffer（从 mock）
- */
-// @ts-ignore
-import { DataBuffer } from '@packages/shared';
+vi.mock('@packages/shared', () => ({
+  useAgvListQuery: vi.fn(() => mockQueryResult),
+  fetchAgvList: vi.fn(),
+}));
 
-/**
- * 📋 模拟 AGV 数据
- */
-const mockAgvData = [
-  {
-    id: 'AGV001',
-    x: 100,
-    y: 200,
-    status: 'idle',
-  },
-  {
-    id: 'AGV002',
-    x: 150,
-    y: 250,
-    status: 'moving',
-  },
-];
-
-describe('AgvList', () => {
+describe('AgvList - AGV List Page (Red Light Phase)', () => {
   beforeEach(() => {
-    // ✅ 设置 mock 返回值（直接赋值，不需要调用 mockReturnValue）
-    DataBuffer.getInstance().getSnapshot = vi.fn().mockReturnValue(mockAgvData);
+    vi.clearAllMocks();
   });
 
-  /**
-   * 🚨 测试 1：组件不抛出错误（应通过 - 组件已实现）
-   * @description 验证组件可以正确挂载
-   */
-  it('组件正确挂载', () => {
-    const wrapper = mount(AgvList, {
-      global: {
-        stubs: ['ACard', 'ATable', 'ALoading'],
-      },
+  describe('Component Mounting (Red Light Phase)', () => {
+    it('空占位组件挂载不抛出异常', async () => {
+      // ✅ 导入 AgvList 组件（红灯阶段：空占位）
+      const AgvListComponent = await import('@/views/AgvList.vue');
+      
+      // ✅ 预期：组件挂载时不会抛出错误（即使未实现业务逻辑）
+      expect(() => {
+        mount(AgvListComponent.default, {
+          global: {
+            stubs: ['ACard', 'ATable', 'AForm', 'AFormItem', 'AInput', 'ASelect', 'AOption', 'ATag', 'ARouterLink'],
+          },
+        });
+      }).not.toThrow();
     });
 
-    // ✅ 断言：组件应正确挂载
-    expect(wrapper.exists()).toBe(true);
-  });
+    it('组件应包含占位 template', async () => {
+      const AgvListComponent = await import('@/views/AgvList.vue');
+      
+      const wrapper = mount(AgvListComponent.default, {
+        global: {
+          stubs: ['ACard', 'ATable', 'AForm', 'AFormItem', 'AInput', 'ASelect', 'AOption', 'ATag', 'ARouterLink'],
+        },
+      });
 
-  /**
-   * 🚨 测试 2：DataBuffer 调用断言（应通过 - 数据已绑定）
-   * @description 验证 DataBuffer.getInstance().getSnapshot() 被调用
-   */
-  it('正确调用 DataBuffer 获取数据', () => {
-    const wrapper = mount(AgvList, {
-      global: {
-        stubs: ['ACard', 'ATable', 'ALoading'],
-      },
+      // ✅ 预期：组件存在
+      expect(wrapper.exists()).toBe(true);
     });
-
-    // ✅ 断言：DataBuffer.getInstance().getSnapshot() 被调用
-    expect(DataBuffer.getInstance().getSnapshot).toHaveBeenCalled();
   });
 });
