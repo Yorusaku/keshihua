@@ -5,7 +5,7 @@
 
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router';
 import AdminLayout from '@/layout/AdminLayout.vue';
-import { AimOutlined } from '@ant-design/icons-vue';
+import { AimOutlined, BarChartOutlined } from '@ant-design/icons-vue';
 
 /**
  * 静态路由配置
@@ -27,6 +27,15 @@ const routes: RouteRecordRaw[] = [
         meta: {
           title: 'AGV 车辆管理',
           icon: AimOutlined,
+        },
+      },
+      {
+        path: 'report',
+        name: 'CapacityReport',
+        component: () => import('@/views/CapacityReport.vue'),
+        meta: {
+          title: '产能透视报表',
+          icon: BarChartOutlined,
         },
       },
     ],
