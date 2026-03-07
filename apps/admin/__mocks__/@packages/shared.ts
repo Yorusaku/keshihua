@@ -7,11 +7,27 @@
  * - 返回模拟 AGV 数据数组
  * - Mock useAgvListQuery 和 fetchAgvList
  * - Mock useAddAgvMutation 和 addAgv
+ * - Mock agvSyncBus 跨端通信总线
  */
 
-import { ref, type Ref } from 'vue';
+import { ref } from 'vue';
 import { vi } from 'vitest';
-import type { IAgvListParams, IAgvListResponse, IAddAgvPayload, IAgvData } from '@packages/shared';
+
+/**
+ * 📌 类型定义（本地定义，避免导入真实包）
+ */
+export interface IAgvData {
+  id: string;
+  x: number;
+  y: number;
+  status: 'idle' | 'moving' | 'error';
+  timestamp: number;
+}
+
+export interface IAgvListResponse {
+  total: number;
+  list: IAgvData[];
+}
 
 /**
  * 📦 Mock useAgvListQuery 返回值
@@ -62,6 +78,7 @@ export const DataBuffer = {
         status: 'moving',
       },
     ]),
+    pushData: vi.fn(),
   }),
 };
 
@@ -83,9 +100,18 @@ export const fetchAgvList = vi.fn().mockResolvedValue({
 // ✅ Mock addAgv API
 // @ts-ignore
 export const addAgv = vi.fn().mockResolvedValue({
-  id: 'AGV-999',
-  x: 500,
-  y: 500,
+  id: 'AGV-NEW',
+  x: 100,
+  y: 200,
   status: 'idle',
   timestamp: Date.now(),
 });
+
+// ✅ Mock agvSyncBus 跨端通信总线
+export const agvSyncBus = {
+  broadcastNewAgv: vi.fn(),
+  subscribeNewAgv: vi.fn(() => vi.fn()),
+};
+
+// ✅ Mock AGV_SYNC_CHANNEL 常量
+export const AGV_SYNC_CHANNEL = 'agv-sync-channel';

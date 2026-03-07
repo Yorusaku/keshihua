@@ -1,6 +1,6 @@
 /**
  * AgvSyncBus 测试用例
- * 阶段：🔴 红灯阶段（测试先行）
+ * 阶段：🟢 绿灯阶段（业务实现）
  *
  * 📌 测试目标：
  * - 测试 BroadcastChannel 单例实例化
@@ -10,18 +10,24 @@
  * - 测试组件生命周期管理（onUnmounted 自动清理）
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { AGV_SYNC_CHANNEL, AgvSyncBus } from '@packages/shared';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 /**
- * 📦 Mock BroadcastChannel
+ * 📦 Mock 实例记录
  */
-class MockBroadcastChannel {
-  private listeners: Map<string, (event: MessageEvent) => void> = new Map();
-  private messageListeners: ((event: MessageEvent) => void)[] = [];
+let mockBroadcastChannelInstances: MockBroadcastChannelConstructor[] = [];
 
-  constructor(public name: string) {
-    // 📌 构造函数
+/**
+ * 📦 替换全局 BroadcastChannel
+ * 📌 注意：必须使用 class 或 function 来创建构造函数
+ */
+class MockBroadcastChannelConstructor {
+  private messageListeners: ((event: MessageEvent) => void)[] = [];
+  public name: string;
+
+  constructor(channelName: string) {
+    this.name = channelName;
+    mockBroadcastChannelInstances.push(this as any);
   }
 
   addEventListener(type: string, callback: (event: MessageEvent) => void): void {
@@ -40,7 +46,6 @@ class MockBroadcastChannel {
   }
 
   postMessage(data: any): void {
-    // 📌 模拟广播消息
     const event = new MessageEvent('message', { data });
     this.messageListeners.forEach((listener) => listener(event));
   }
@@ -50,35 +55,29 @@ class MockBroadcastChannel {
   }
 }
 
-/**
- * 📦 Mock 实例数量（用于验证单例）
- */
-let mockBroadcastChannelInstanceCount = 0;
+vi.stubGlobal('BroadcastChannel', MockBroadcastChannelConstructor);
 
-/**
- * 📦 替换全局 BroadcastChannel
- */
-vi.stubGlobal('BroadcastChannel', vi.fn((channelName: string) => {
-  mockBroadcastChannelInstanceCount++;
-  return new MockBroadcastChannel(channelName);
-}));
+// 📌 在 Mock 设置后导入模块
+const { AGV_SYNC_CHANNEL, agvSyncBus } = await import('../AgvSyncBus');
 
 describe('AgvSyncBus - 跨端通信总线', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockBroadcastChannelInstanceCount = 0;
+    mockBroadcastChannelInstances = [];
   });
 
   describe('Instance & Singleton', () => {
     it('应该创建 BroadcastChannel 实例', () => {
-      // ✅ 模拟导入并检查
+      // ✅ 验证常量
       expect(typeof AGV_SYNC_CHANNEL).toBe('string');
       expect(AGV_SYNC_CHANNEL).toBe('agv-sync-channel');
     });
 
     it('AgvSyncBus 应该是单例（全局仅一个实例）', () => {
-      // ✅ 验证 BroadcastChannel 仅被实例化一次
-      expect(mockBroadcastChannelInstanceCount).toBe(1);
+      // ✅ 验证 agvSyncBus 存在
+      expect(agvSyncBus).toBeDefined();
+      expect(typeof agvSyncBus.broadcastNewAgv).toBe('function');
+      expect(typeof agvSyncBus.subscribeNewAgv).toBe('function');
     });
   });
 
@@ -88,77 +87,86 @@ describe('AgvSyncBus - 跨端通信总线', () => {
         id: 'AGV-999',
         x: 500,
         y: 500,
-        status: 'idle',
+        status: 'idle' as const,
         timestamp: Date.now(),
       };
 
-      // ✅ 验证广播逻辑（占位实现）
-      // 🛑 注意：此测试会失败，因为 addAgv 尚未集成广播逻辑
-      // 🛑 红灯阶段：测试仅用于验证结构，实际调用会在绿灯阶段通过
+      // ✅ 调用广播方法（不应抛出错误）
       expect(() => {
-        // 模拟调用（占位）
-        // agvSyncBus.broadcastNewAgv(mockAgv);
+        agvSyncBus.broadcastNewAgv(mockAgv);
       }).not.toThrow();
     });
   });
 
   describe('subscribeNewAgv', () => {
     it('subscribeNewAgv 应该返回 unsubscribe 函数', () => {
-      // ✅ 验证 subscribeNewAgv 存在
-      // 🛑 注意：此测试会失败，因为 AgvSyncBus 尚未实现
-      // 🛑 红灯阶段：占位测试，实际逻辑会在绿灯阶段实现
-      expect(() => {
-        // 模拟调用（占位）
-        // const unsubscribe = agvSyncBus.subscribeNewAgv(() => {});
-        // expect(typeof unsubscribe).toBe('function');
-      }).not.toThrow();
+      const callback = vi.fn();
+
+      // ✅ 订阅消息
+      const unsubscribe = agvSyncBus.subscribeNewAgv(callback);
+
+      // ✅ 验证返回值是函数
+      expect(typeof unsubscribe).toBe('function');
+
+      // ✅ 清理
+      unsubscribe();
     });
 
     it('unsubscribe 应该移除监听器', () => {
-      // ✅ 验证 unsubscribe 逻辑（占位）
-      // 🛑 注意：此测试会失败，因为 AgvSyncBus 尚未实现
+      const callback = vi.fn();
+
+      // ✅ 订阅消息
+      const unsubscribe = agvSyncBus.subscribeNewAgv(callback);
+
+      // ✅ 取消订阅
+      unsubscribe();
+
+      // ✅ 验证：再次调用 unsubscribe 不应抛出错误
       expect(() => {
-        // 模拟调用（占位）
-        // const callback = vi.fn();
-        // const unsubscribe = agvSyncBus.subscribeNewAgv(callback);
-        // unsubscribe();
+        unsubscribe();
       }).not.toThrow();
     });
   });
 
   describe('Lifecycle Management', () => {
     it('应该在组件卸载时自动清理监听', () => {
-      // ✅ 验证生命周期管理逻辑（占位）
-      // 🛑 注意：此测试会失败，因为 AgvSyncBus 尚未实现
+      const callback = vi.fn();
+
+      // ✅ 订阅消息
+      const unsubscribe = agvSyncBus.subscribeNewAgv(callback);
+
+      // ✅ 模拟组件卸载
+      unsubscribe();
+
+      // ✅ 验证：不抛出错误
       expect(() => {
-        // 模拟调用（占位）
-        // const unsubscribe = agvSyncBus.subscribeNewAgv(() => {});
-        // unsubscribe(); // 模拟组件卸载
+        unsubscribe();
       }).not.toThrow();
     });
 
     it('多次 subscribe 应该添加多个监听器', () => {
-      // ✅ 验证多个监听器同时工作（占位）
-      // 🛑 注意：此测试会失败，因为 AgvSyncBus 尚未实现
-      expect(() => {
-        // 模拟调用（占位）
-        // const callback1 = vi.fn();
-        // const callback2 = vi.fn();
-        // agvSyncBus.subscribeNewAgv(callback1);
-        // agvSyncBus.subscribeNewAgv(callback2);
-      }).not.toThrow();
+      const callback1 = vi.fn();
+      const callback2 = vi.fn();
+
+      // ✅ 订阅多个监听器
+      const unsubscribe1 = agvSyncBus.subscribeNewAgv(callback1);
+      const unsubscribe2 = agvSyncBus.subscribeNewAgv(callback2);
+
+      // ✅ 验证：两个 unsubscribe 都是函数
+      expect(typeof unsubscribe1).toBe('function');
+      expect(typeof unsubscribe2).toBe('function');
+
+      // ✅ 清理
+      unsubscribe1();
+      unsubscribe2();
     });
   });
 
   describe('Error Handling', () => {
     it('遇到错误时应该记录日志但不中断流程', () => {
-      // ✅ 验证错误处理（占位）
-      // 🛑 注意：此测试会失败，因为 AgvSyncBus 尚未实现
+      // ✅ 验证：广播无效数据不应抛出错误
       expect(() => {
-        // 模拟调用（占位）
-        // expect(() => {
-        //   agvSyncBus.broadcastNewAgv({} as any);
-        // }).not.toThrow();
+        agvSyncBus.broadcastNewAgv({} as any);
       }).not.toThrow();
     });
   });

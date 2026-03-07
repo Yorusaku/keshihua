@@ -11,8 +11,12 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fetchAgvList, addAgv, IAgvListParams, IAgvListResponse, IAddAgvPayload, IAgvData } from '../api/agv';
-import { mockAgvData } from '../api/agv';
+import { fetchAgvList, addAgv, mockAgvData } from '../../api/agv';
+import type { IAgvListParams, IAgvListResponse, IAddAgvPayload, IAgvData } from '../../api/agv';
+import { agvSyncBus } from '../../../websocket/AgvSyncBus';
+
+// ✅ Mock agvSyncBus.broadcastNewAgv 方法
+vi.spyOn(agvSyncBus, 'broadcastNewAgv');
 
 describe('fetchAgvList - AGV List API', () => {
   describe('Default Pagination', () => {
@@ -199,7 +203,10 @@ describe('addAgv - AGV Add API', () => {
     });
 
     it('✅ 应该将新数据插入到数组头部（unshift 行为）', async () => {
-      const initialId = mockAgvData[0].id;
+      // ✅ 先查询获取当前数量
+      const initialParams = { current: 1, pageSize: 100, keyword: '', status: undefined };
+      const initialResponse = await fetchAgvList(initialParams);
+      const initialCount = initialResponse.list.length;
 
       const payload: IAddAgvPayload = {
         id: 'AGV-777',
@@ -210,35 +217,51 @@ describe('addAgv - AGV Add API', () => {
 
       await addAgv(payload);
 
-      // ✅ 预期：新增数据在头部，原数据被挤到第二位
-      expect(mockAgvData[0].id).toBe('AGV-777');
-      expect(mockAgvData[1].id).toBe(initialId);
+      // ✅ 预期：新增后列表数量增加 1，且新增数据在顶部
+      const newResponse = await fetchAgvList(initialParams);
+      expect(newResponse.list).toHaveLength(initialCount + 1);
+      expect(newResponse.list[0].id).toBe('AGV-777');
     });
   });
 
   /**
-   * 📌 新增测试用例：验证广播逻辑（红灯阶段）
-   * @description 测试红灯阶段：addAgv 尚未集成广播逻辑，测试应失败
+   * 📌 新增测试用例：验证广播逻辑（绿灯阶段）
+   * @description 测试绿灯阶段：addAgv 已集成广播逻辑，测试应通过
    */
   describe('Broadcast Logic', () => {
-    it('addAgv 应该在成功后调用 agvSyncBus.broadcastNewAgv', () => {
-      // ✅ 预期：addAgv 应调用 broadcastNewAgv
-      // 🛑 红灯阶段：测试应失败，因为 addAgv 尚未集成广播逻辑
-      expect(() => {
-        // 模拟调用（占位）
-        // expect(agvSyncBus.broadcastNewAgv).toHaveBeenCalled();
-      }).not.toThrow();
+    beforeEach(() => {
+      // ✅ 重置 mock
+      vi.clearAllMocks();
     });
 
-    it('广播的数据应与返回数据一致', () => {
+    it('addAgv 应该在成功后调用 agvSyncBus.broadcastNewAgv', async () => {
+      // ✅ 预期：addAgv 应调用 broadcastNewAgv
+      const payload: IAddAgvPayload = {
+        id: 'AGV-666',
+        x: 100,
+        y: 100,
+        status: 'idle',
+      };
+
+      await addAgv(payload);
+
+      // ✅ 验证：broadcastNewAgv 被调用
+      expect(agvSyncBus.broadcastNewAgv).toHaveBeenCalled();
+    });
+
+    it('广播的数据应与返回数据一致', async () => {
       // ✅ 预期：broadcastNewAgv 接收的数据应与返回的 newAgv 一致
-      // 🛑 红灯阶段：测试应失败，因为 addAgv 尚未集成广播逻辑
-      expect(() => {
-        // 模拟调用（占位）
-        // const payload = { id: 'AGV-666', x: 100, y: 100, status: 'idle' };
-        // const result = await addAgv(payload);
-        // expect(agvSyncBus.broadcastNewAgv).toHaveBeenCalledWith(result);
-      }).not.toThrow();
+      const payload: IAddAgvPayload = {
+        id: 'AGV-555',
+        x: 50,
+        y: 50,
+        status: 'moving',
+      };
+
+      const result = await addAgv(payload);
+
+      // ✅ 验证：broadcastNewAgv 被调用且接收正确数据
+      expect(agvSyncBus.broadcastNewAgv).toHaveBeenCalledWith(result);
     });
   });
 });

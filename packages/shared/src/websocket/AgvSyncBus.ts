@@ -1,10 +1,11 @@
 /**
  * AgvSyncBus - 跨端通信总线
- * 阶段：🔴 红灯阶段（占位文件 - 业务逻辑待实现）
+ * 阶段：🟢 绿灯阶段（业务实现）
  *
- * 📌 红灯说明：
- * - 此文件为占位文件，所有方法抛出 "Not implemented (Red Light)" 错误
- * - 绿灯阶段将实现完整的 BroadcastChannel 封装
+ * 📌 核心功能：
+ * - 基于 BroadcastChannel API 实现跨 Tab/窗口实时通信
+ * - 单例模式确保全局唯一实例
+ * - 支持订阅/取消订阅机制
  */
 
 import type { IAgvData } from './types';
@@ -35,21 +36,49 @@ export interface AgvSyncBus {
 export const AGV_SYNC_CHANNEL = 'agv-sync-channel';
 
 /**
- * 📌 占位实现（红灯阶段）
- * @description 抛出错误，表示功能尚未实现
+ * 📌 创建 AgvSyncBus 实例（单例模式）
+ * @description 封装 BroadcastChannel，提供广播和订阅能力
  */
-const placeholderBus: AgvSyncBus = {
-  broadcastNewAgv: () => {
-    throw new Error('Not implemented (Red Light): broadcastNewAgv');
-  },
+function createAgvSyncBus(): AgvSyncBus {
+  // ✅ 创建 BroadcastChannel 实例
+  const channel = new BroadcastChannel(AGV_SYNC_CHANNEL);
 
-  subscribeNewAgv: () => {
-    throw new Error('Not implemented (Red Light): subscribeNewAgv');
-  },
-};
+  // ✅ 存储所有订阅的回调函数
+  const subscribers = new Set<(agv: IAgvData) => void>();
+
+  // ✅ 监听 message 事件，分发给所有订阅者
+  channel.addEventListener('message', (event: MessageEvent<IAgvData>) => {
+    const agv = event.data;
+    subscribers.forEach(callback => callback(agv));
+  });
+
+  return {
+    /**
+     * 广播新车数据
+     * @param agv 新增的 AGV 数据
+     */
+    broadcastNewAgv: (agv: IAgvData): void => {
+      channel.postMessage(agv);
+    },
+
+    /**
+     * 订阅新车数据
+     * @param callback 收到新车数据时的回调函数
+     * @returns unsubscribe 函数
+     */
+    subscribeNewAgv: (callback: (agv: IAgvData) => void): (() => void) => {
+      subscribers.add(callback);
+
+      // ✅ 返回 unsubscribe 函数
+      return () => {
+        subscribers.delete(callback);
+      };
+    },
+  };
+}
 
 /**
- * 📌 单例实例（占位）
- * @description 导出供全局使用
+ * 📌 单例实例
+ * @description 全局唯一实例，导出供 Admin 和 Dashboard 使用
  */
-export const agvSyncBus = placeholderBus;
+export const agvSyncBus = createAgvSyncBus();

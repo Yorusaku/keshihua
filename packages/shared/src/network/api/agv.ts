@@ -12,6 +12,7 @@
  */
 
 import type { IAgvData } from '@/websocket/types';
+import { agvSyncBus } from '../../websocket/AgvSyncBus';
 
 /**
  * 📌 AGV 列表查询参数接口
@@ -127,6 +128,9 @@ export async function addAgv(payload: IAddAgvPayload): Promise<IAgvData> {
 
   // ✅ 将新数据 push 到 mockAgvData 数组头部（模拟真实新增）
   mockAgvData.unshift(newAgv);
+
+  // ✅ 广播新车数据到 Dashboard 大屏（跨端实时同步）
+  agvSyncBus.broadcastNewAgv(newAgv);
 
   // ✅ 返回新增的数据（包含生成的 timestamp）
   return newAgv;

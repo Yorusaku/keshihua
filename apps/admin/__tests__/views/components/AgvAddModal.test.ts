@@ -39,11 +39,22 @@ const mockAddAgv = vi.fn().mockResolvedValue({
 
 /**
  * 📦 Mock @packages/shared - 拦截所有导出
+ * 📌 注意：不使用 ori() 加载真实模块，避免解析路径别名问题
  */
-vi.mock('@packages/shared', async (ori) => ({
-  ...(await ori),
+vi.mock('@packages/shared', () => ({
   useAddAgvMutation: vi.fn(() => mockMutationResult),
   addAgv: mockAddAgv,
+  DataBuffer: {
+    getInstance: () => ({
+      getSnapshot: vi.fn().mockReturnValue([]),
+      pushData: vi.fn(),
+    }),
+  },
+  agvSyncBus: {
+    broadcastNewAgv: vi.fn(),
+    subscribeNewAgv: vi.fn(() => vi.fn()),
+  },
+  AGV_SYNC_CHANNEL: 'agv-sync-channel',
 }));
 
 /**
