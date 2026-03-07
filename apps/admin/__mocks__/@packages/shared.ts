@@ -1,117 +1,100 @@
 /**
  * Mock @packages/shared
- * 阶段：🟢 绿灯阶段（完整实现）
- *
- * 📌 Mock 策略：
- * - 拦截 DataBuffer.getInstance().getSnapshot()
- * - 返回模拟 AGV 数据数组
- * - Mock useAgvListQuery 和 fetchAgvList
- * - Mock useAddAgvMutation 和 addAgv
- * - Mock agvSyncBus 跨端通信总线
+ * 阶段：🟣 重构阶段（Vue Query Hook 拦截）
  */
 
 import { ref } from 'vue';
-import { vi } from 'vitest';
+import type { UseQueryResult } from '@tanstack/vue-query';
 
-/**
- * 📌 类型定义（本地定义，避免导入真实包）
- */
-export interface IAgvData {
-  id: string;
-  x: number;
-  y: number;
-  status: 'idle' | 'moving' | 'error';
-  timestamp: number;
-}
-
-export interface IAgvListResponse {
-  total: number;
-  list: IAgvData[];
-}
-
-/**
- * 📦 Mock useAgvListQuery 返回值
- */
-export const mockQueryResult = {
-  data: ref<IAgvListResponse | undefined>(undefined),
+// ✅ Mock useAgvListQuery 返回值
+const mockAgvListQueryResult = {
+  data: ref({ total: 20, list: [] }),
   isLoading: ref(true),
   isError: ref(false),
-  error: ref<Error | null>(null),
+  error: ref(null),
   refetch: vi.fn(),
 };
 
-/**
- * 📦 Mock useAddAgvMutation 返回值
- */
-export const mockMutationResult = {
+// ✅ Mock useCapacityReportQuery 返回值
+const mockReportQueryResult = {
+  data: ref([]),
+  isLoading: ref(true),
+  isError: ref(false),
+  error: ref(null),
+  refetch: vi.fn(),
+};
+
+// ✅ Mock useAgvMutation 返回值
+const mockAgvMutationResult = {
   mutate: vi.fn(),
   isPending: ref(false),
   isSuccess: ref(false),
   isError: ref(false),
-  error: ref<Error | null>(null),
+  error: ref(null),
   reset: vi.fn(),
 };
 
-/**
- * 📦 Mock useQueryClient（用于验证缓存失效）
- */
-export const mockQueryClient = {
-  clear: vi.fn(),
-  invalidateQueries: vi.fn(),
+// ✅ Mock useCapacityMutation 返回值
+const mockCapacityMutationResult = {
+  mutate: vi.fn(),
+  isPending: ref(false),
+  isSuccess: ref(false),
+  isError: ref(false),
+  error: ref(null),
+  reset: vi.fn(),
 };
 
-// ✅ 使用 vitest 的 vi.fn() 创建 mock 函数
-// @ts-ignore
-export const DataBuffer = {
-  getInstance: () => ({
-    getSnapshot: vi.fn().mockReturnValue([
-      {
-        id: 'AGV001',
-        x: 100,
-        y: 200,
-        status: 'idle',
-      },
-      {
-        id: 'AGV002',
-        x: 150,
-        y: 250,
-        status: 'moving',
-      },
-    ]),
-    pushData: vi.fn(),
-  }),
-};
-
-// ✅ Mock useAgvListQuery Hook
-// @ts-ignore
-export const useAgvListQuery = vi.fn(() => mockQueryResult);
-
-// ✅ Mock useAddAgvMutation Hook
-// @ts-ignore
-export const useAddAgvMutation = vi.fn(() => mockMutationResult);
-
-// ✅ Mock fetchAgvList API
-// @ts-ignore
-export const fetchAgvList = vi.fn().mockResolvedValue({
-  total: 20,
-  list: [],
+// ✅ 实际的 API 返回值（用于非 Mock 测试）
+const actualAgvListQuery = (params: any) => ({
+  data: ref({ total: 20, list: [] }),
+  isLoading: ref(true),
+  isError: ref(false),
+  error: ref(null),
+  refetch: vi.fn(),
 });
 
-// ✅ Mock addAgv API
-// @ts-ignore
-export const addAgv = vi.fn().mockResolvedValue({
-  id: 'AGV-NEW',
-  x: 100,
-  y: 200,
-  status: 'idle',
-  timestamp: Date.now(),
+const actualReportQuery = (params: any) => ({
+  data: ref([]),
+  isLoading: ref(true),
+  isError: ref(false),
+  error: ref(null),
+  refetch: vi.fn(),
 });
 
-// ✅ Mock agvSyncBus 跨端通信总线
-export const agvSyncBus = {
-  broadcastNewAgv: vi.fn(),
-  subscribeNewAgv: vi.fn(() => vi.fn()),
-};
+const actualAgvMutation = () => ({
+  mutate: vi.fn(),
+  isPending: ref(false),
+  isSuccess: ref(false),
+  isError: ref(false),
+  error: ref(null),
+  reset: vi.fn(),
+});
 
-// ✅ Mock AGV_SYNC_CHANNEL 常量
-export const AGV_SYNC_CHANNEL = 'agv-sync-channel';
+const actualCapacityMutation = () => ({
+  mutate: vi.fn(),
+  isPending: ref(false),
+  isSuccess: ref(false),
+  isError: ref(false),
+  error: ref(null),
+  reset: vi.fn(),
+});
+
+// ✅ 导出所有 API（使用 vi.fn 拦截调用）
+export const useAgvListQuery = vi.fn(actualAgvListQuery);
+export const useCapacityReportQuery = vi.fn(actualReportQuery);
+export const useAgvMutation = vi.fn(actualAgvMutation);
+export const useCapacityMutation = vi.fn(actualCapacityMutation);
+
+// ✅ 导出原始 API（用于非 Mock 测试）
+export const getMockAgvListQueryResult = () => mockAgvListQueryResult;
+export const getMockReportQueryResult = () => mockReportQueryResult;
+export const getMockAgvMutationResult = () => mockAgvMutationResult;
+export const getMockCapacityMutationResult = () => mockCapacityMutationResult;
+
+// ✅ 导出所有 API（用于导入测试）
+export * from '@packages/shared/src/network/api/agv';
+export * from '@packages/shared/src/network/api/report';
+export * from '@packages/shared/src/network/queries/useAgvMutation';
+export * from '@packages/shared/src/network/queries/useAgvListQuery';
+export * from '@packages/shared/src/network/queries/useReportQuery';
+export * from '@packages/shared/src/network/queries/useCapacityQuery';

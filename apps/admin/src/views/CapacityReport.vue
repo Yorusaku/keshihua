@@ -1,20 +1,37 @@
 <!-- CapacityReport.vue 产能透视报表 -->
-<!-- 阶段：🟢 绿灯阶段（业务实现） -->
+<!-- 阶段：🟣 重构阶段（Vue Query + 配置抽离） -->
 
 <template>
   <div class="capacity-report">
     <a-card title="产能透视报表">
-      <!-- ✅ S2 Canvas 挂载容器 -->
-      <div ref="s2ContainerRef" class="s2-container"></div>
+      <!-- ✅ 加载状态：使用 a-spin 或骨架屏 -->
+      <a-spin :spinning="query.isLoading" tip="加载数据中...">
+        <!-- ✅ S2 Canvas 挂载容器 -->
+        <div ref="s2ContainerRef" class="s2-container"></div>
+      </a-spin>
     </a-card>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
+import { ref, onMounted, onBeforeUnmount, watchEffect } from 'vue';
 import { PivotSheet } from '@antv/s2';
-import { fetchCapacityReport } from '@packages/shared';
-import type { ICapacityReportData } from '@packages/shared';
+import { useCapacityReportQuery } from '@packages/shared';
+import type { ICapacityReportParams, ICapacityReportData } from '@packages/shared';
+import {
+  ROWS,
+  COLUMNS,
+  VALUES,
+  S2_SIZE,
+  S2_HIERARCHY_TYPE,
+  S2_CONDITION_TEXT_MAP,
+} from '@/constants';
+
+// 📦 查询参数（默认空对象，表示不过滤）
+const queryParameters = ref<ICapacityReportParams>({});
+
+// 📦 Vue Query Hook
+const query = useCapacityReportQuery(queryParameters);
 
 // 📦 S2 容器 DOM 引用
 const s2ContainerRef = ref<HTMLDivElement | null>(null);
@@ -22,74 +39,49 @@ const s2ContainerRef = ref<HTMLDivElement | null>(null);
 // 📦 S2 实例（Canvas 表格引擎）
 let s2Instance: PivotSheet | null = null;
 
-// 📦 表格数据源
-const tableData = ref<ICapacityReportData[]>([]);
-
-// 📌 S2 数据配置（打平数据）
-const s2DataConfig = computed(() => ({
-  fields: {
-    rows: ['factory', 'line'],      // ✅ 行维度：工厂 + 产线
-    columns: ['date'],              // ✅ 列维度：日期
-    values: ['yield', 'defectRate'], // ✅ 指标：产量 + 不良率
-  },
-  data: tableData.value,  // ✅ 动态数据源
-}));
-
-// 📌 S2 选项配置
-const s2Options = {
-  width: 1200,  // ✅ 宽度（根据容器自适应）
-  height: 600,  // ✅ 高度（与容器一致）
-  hierarchyType: 'tree',  // ✅ 树状结构（工厂 → 产线）
-  tooltip: {
-    showPanel: true,  // ✅ 显示面板提示
-  },
-  conditions: {
-    text: [
-      {
-        field: 'yield',
-        mapping: (value: number) => {
-          // ✅ 产量高亮（绿色）
-          return {
-            fill: value > 8000 ? '#52c41a' : undefined,
-          };
-        },
-      },
-      {
-        field: 'defectRate',
-        mapping: (value: number) => {
-          // ✅ 不良率高亮（红色）
-          return {
-            fill: value > 0.05 ? '#ff4d4f' : undefined,
-          };
-        },
-      },
-    ],
-  },
-};
-
 /**
- * 🚀 onMounted：加载数据并实例化 S2
+ * 🚀 onMounted：初始化 S2 绑定 watchEffect
  */
-onMounted(async () => {
+onMounted(() => {
   // 🛡️ 防御性编程：检查容器存在性
   if (!s2ContainerRef.value) {
     console.error('CapacityReport: s2ContainerRef 不存在');
     return;
   }
 
-  try {
-    // ✅ 先请求数据（500ms 延迟）
-    const data = await fetchCapacityReport();
-    tableData.value = data;
+  // ✅ 监听 query.data 变化，数据加载完成后实例化 S2
+  watchEffect(() => {
+    if (query.data.value) {
+      // ✅ 先销毁旧实例（如果存在）
+      if (s2Instance) {
+        s2Instance.destroy();
+        s2Instance = null;
+      }
 
-    // ✅ 数据加载完成后，实例化 S2
-    s2Instance = new PivotSheet(s2ContainerRef.value, s2DataConfig.value, s2Options);
+      // ✅ 实例化 S2（使用抽离的配置常量）
+      s2Instance = new PivotSheet(s2ContainerRef.value, {
+        fields: {
+          rows: ROWS,
+          columns: COLUMNS,
+          values: VALUES,
+        },
+        data: query.data.value,
+      }, {
+        width: S2_SIZE.width,
+        height: S2_SIZE.height,
+        hierarchyType: S2_HIERARCHY_TYPE,
+        tooltip: {
+          showPanel: true,
+        },
+        conditions: {
+          text: [S2_CONDITION_TEXT_MAP.yield, S2_CONDITION_TEXT_MAP.defectRate],
+        },
+      });
 
-    // ✅ 渲染表格
-    s2Instance.render();
-  } catch (error) {
-    console.error('CapacityReport: 加载数据失败', error);
-  }
+      // ✅ 渲染表格
+      s2Instance.render();
+    }
+  });
 });
 
 /**
