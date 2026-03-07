@@ -17,10 +17,6 @@ export default defineConfig({
   resolve: {
     alias: [
       { find: '@', replacement: path.resolve(__dirname, './src') },
-      {
-        find: '@packages/shared',
-        replacement: path.resolve(__dirname, './__mocks__/@packages/shared.ts'),
-      },
     ],
   },
 
@@ -29,5 +25,9 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['__tests__/setup.ts'],
     include: ['__tests__/**/*.test.ts'],
+    // ✅ 使用 moduleNameMapper 映射 @packages/shared 到 mock
+    moduleNameMapper: {
+      '^@packages/shared$': '<rootDir>/__mocks__/@packages/shared.ts',
+    },
   },
 });

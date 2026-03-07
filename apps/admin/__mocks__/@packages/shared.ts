@@ -7,6 +7,8 @@
  * - 返回模拟 AGV 数据数组
  */
 
+// ✅ 使用 vitest 的 vi.fn() 创建 mock 函数
+// @ts-ignore
 export const DataBuffer = {
   getInstance: () => ({
     getSnapshot: vi.fn().mockReturnValue([

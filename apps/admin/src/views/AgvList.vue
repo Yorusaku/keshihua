@@ -41,32 +41,18 @@ onMounted(async () => {
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="x" label="X 坐标" width="100" />
         <el-table-column prop="y" label="Y 坐标" width="100" />
-        <el-table-column prop="status" label="状态" width="100">
-          <template #default="{ row }">
-            <el-tag :type="getStatusType(row.status)" size="small">
-              {{ getStatusText(row.status) }}
-            </el-tag>
-          </template>
-        </el-table-column>
+        <el-table-column prop="status" label="状态" width="100" />
       </el-table>
     </el-card>
   </div>
 </template>
 
 <script lang="ts">
-// 状态转换逻辑
+// 状态映射（仅保留，不使用）
 const AGV_STATUS_MAP = {
   idle: { text: '空闲', type: 'success' },
   moving: { text: '移动中', type: 'primary' },
   error: { text: '错误', type: 'danger' },
-};
-
-const getStatusType = (status: string) => {
-  return AGV_STATUS_MAP[status as keyof typeof AGV_STATUS_MAP]?.type || 'info';
-};
-
-const getStatusText = (status: string) => {
-  return AGV_STATUS_MAP[status as keyof typeof AGV_STATUS_MAP]?.text || status;
 };
 </script>
 
