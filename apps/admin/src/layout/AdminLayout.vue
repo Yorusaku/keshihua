@@ -1,12 +1,13 @@
 <!-- AdminLayout.vue 主布局骨架 -->
-<!-- 阶段：🟣 精简重构（按需加载） -->
+<!-- 阶段：🟣 纠偏阶段（精确引入修复） -->
 
 <script setup lang="ts">
-// Props（预留扩展）
+// ✅ 精准引入
+import Sidebar from './Sidebar.vue';
+import Header from './Header.vue';
+
 interface AdminLayoutProps {
-  // 是否折叠侧边栏
   collapsed?: boolean;
-  // 是否显示 Header
   showHeader?: boolean;
 }
 
@@ -18,26 +19,11 @@ withDefaults(defineProps<AdminLayoutProps>(), {
 
 <template>
   <a-layout class="admin-layout" has-sider>
-    <!-- 侧边栏 -->
-    <a-layout-sider
-      :width="collapsed ? '64px' : '240px'"
-      class="admin-layout__sidebar"
-      :collapsible="true"
-      :collapsed="collapsed"
-      :trigger="null"
-      theme="dark"
-    >
-      <Sidebar :collapsed="collapsed" />
-    </a-layout-sider>
+    <Sidebar :collapsed="collapsed" />
 
-    <!-- 主内容区 -->
     <a-layout class="admin-layout__main">
-      <!-- 顶栏 -->
-      <a-layout-header v-if="showHeader" class="admin-layout__header">
-        <Header />
-      </a-layout-header>
-
-      <!-- 路由出口 -->
+      <Header v-if="showHeader" />
+      
       <a-layout-content class="admin-layout__content">
         <router-view />
       </a-layout-content>
@@ -47,37 +33,19 @@ withDefaults(defineProps<AdminLayoutProps>(), {
 
 <style scoped>
 .admin-layout {
-  height: 100vh;
+  min-height: 100vh;
   overflow: hidden;
 }
-
-.admin-layout__sidebar {
-  flex-shrink: 0;
-}
-
 .admin-layout__main {
   display: flex;
   flex-direction: column;
-  margin-left: 240px; /* 默认侧边栏宽度 */
-  transition: margin-left 0.3s;
+  height: 100vh;
 }
-
-.admin-layout__main.collapsed {
-  margin-left: 64px; /* 折叠侧边栏宽度 */
-}
-
-.admin-layout__header {
-  padding: 0 20px !important;
-  background-color: #fff;
-  box-shadow: 0 1px 4px rgba(0, 21, 41, 0.08);
-  display: flex;
-  align-items: center;
-}
-
 .admin-layout__content {
-  flex: 1;
-  padding: 20px;
-  background-color: #f0f2f5;
+  margin: 24px;
+  padding: 24px; /* ✅ 加上 padding，让内容区更丰满 */
   overflow-y: auto;
+  background-color: #f0f2f5;
+  flex: 1; /* ✅ 核心修复：强制占用剩余所有高度，防止塌陷！ */
 }
 </style>

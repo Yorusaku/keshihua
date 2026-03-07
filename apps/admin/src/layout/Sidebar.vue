@@ -1,10 +1,10 @@
 <!-- Sidebar.vue 侧边栏菜单 -->
-<!-- 阶段：🟣 精简重构（按需加载） -->
+<!-- 阶段：🟣 纠偏阶段（修复 VNode 崩溃问题） -->
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useRouter } from 'vue-router';
-import type { MenuProps } from 'ant-design-vue';
+import { useRoute, useRouter } from 'vue-router';
+import type { AppRouteRecordRaw } from '@/types';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -14,14 +14,11 @@ const props = withDefaults(defineProps<SidebarProps>(), {
   collapsed: false,
 });
 
+const route = useRoute();
 const router = useRouter();
 
-/**
- * 📌 从全局路由配置中动态生成菜单项
- * @description 读取 router.options.routes，自动解析出需要显示的菜单
- */
-const menuItems = computed(() => {
-  const routes = router.options.routes as any[];
+const menuList = computed(() => {
+  const routes = router.options.routes as AppRouteRecordRaw[];
 
   // 1. 找到包含子路由的主 Layout 路由
   const layoutRoute = routes.find((r) => r.children && r.children.length > 0);
@@ -35,57 +32,58 @@ const menuItems = computed(() => {
       // 处理相对路径和绝对路径的拼接
       const fullPath = child.path === '' ? layoutRoute.path : `${layoutRoute.path}/${child.path}`;
       return {
-        key: fullPath,
-        label: child.meta?.title || '未知菜单',
+        path: fullPath,
+        title: child.meta?.title || '未知菜单',
         icon: child.meta?.icon,
       };
     })
-    .sort((a, b) => {
-      const weightA = (a as any).meta?.weight || 0;
-      const weightB = (b as any).meta?.weight || 0;
-      return weightA - weightB;
-    });
+    .sort((a, b) => ((a.meta?.weight || 0) - (b.meta?.weight || 0)));
 });
 </script>
 
 <template>
-  <div class="sidebar">
-    <!-- Logo -->
+  <a-layout-sider
+    :collapsed="props.collapsed"
+    :trigger="null"
+    collapsible
+    width="240"
+    class="sidebar"
+  >
     <div class="sidebar__logo">
-      <svg v-if="collapsed" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-      <svg v-else xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+      <span v-if="!collapsed" style="font-size: 18px; font-weight: bold; margin-left: 8px; color: white;">
+        智造远望 Admin
+      </span>
     </div>
 
-    <!-- 菜单 - 动态渲染 -->
     <a-menu
-      :default-selected-keys="[$route.path]"
-      :mode="collapsed ? 'vertical' : 'inline'"
+      :selected-keys="[route.path]"
+      mode="inline"
       theme="dark"
-      :items="menuItems"
       style="border-right: 0"
     >
-      <template #icon="{ icon: IconComponent }">
-        <component :is="IconComponent" v-if="IconComponent" />
-      </template>
+      <a-menu-item v-for="item in menuList" :key="item.path">
+        <router-link :to="item.path">
+          <component :is="item.icon" v-if="item.icon" />
+          <span style="margin-left: 10px;">{{ item.title }}</span>
+        </router-link>
+      </a-menu-item>
     </a-menu>
-  </div>
+  </a-layout-sider>
 </template>
 
 <style scoped>
 .sidebar {
   height: 100vh;
-  background-color: #001529;
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
+  box-shadow: 2px 0 8px 0 rgba(29, 35, 41, 0.05);
+  z-index: 10;
 }
-
 .sidebar__logo {
   height: 64px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
-  flex-shrink: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  background-color: rgba(255, 255, 255, 0.04);
 }
 </style>

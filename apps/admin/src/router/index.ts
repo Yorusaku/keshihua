@@ -1,12 +1,10 @@
 /**
  * Router 实例配置
- * 阶段：🟣 精简重构（按需加载）
+ * 阶段：🟣 纠偏阶段（动态导入修复 HMR 死锁）
  */
 
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router';
-import { AdminLayout } from '@/layout';
-import { AgvList } from '@/views';
-// ✅ 只按需引入用到的图标
+import AdminLayout from '@/layout/AdminLayout.vue';
 import { AimOutlined } from '@ant-design/icons-vue';
 
 /**
@@ -24,7 +22,8 @@ const routes: RouteRecordRaw[] = [
       {
         path: '',
         name: 'AgvList',
-        component: AgvList,
+        // ✅ 核心修复：使用动态导入，彻底杜绝 undefined 导致白板！
+        component: () => import('@/views/AgvList.vue'),
         meta: {
           title: 'AGV 车辆管理',
           icon: AimOutlined,
