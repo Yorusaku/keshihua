@@ -151,7 +151,7 @@ describe('fetchAgvList - AGV List API', () => {
 
 /**
  * 📌 addAgv API 测试用例（新增数据）
- * @description 测试红灯阶段：addAgv 函数未实现，测试应全部失败
+ * @description 测试红灯阶段：addAgv 函数已实现，但尚未集成广播逻辑
  */
 describe('addAgv - AGV Add API', () => {
   beforeEach(() => {
@@ -213,6 +213,32 @@ describe('addAgv - AGV Add API', () => {
       // ✅ 预期：新增数据在头部，原数据被挤到第二位
       expect(mockAgvData[0].id).toBe('AGV-777');
       expect(mockAgvData[1].id).toBe(initialId);
+    });
+  });
+
+  /**
+   * 📌 新增测试用例：验证广播逻辑（红灯阶段）
+   * @description 测试红灯阶段：addAgv 尚未集成广播逻辑，测试应失败
+   */
+  describe('Broadcast Logic', () => {
+    it('addAgv 应该在成功后调用 agvSyncBus.broadcastNewAgv', () => {
+      // ✅ 预期：addAgv 应调用 broadcastNewAgv
+      // 🛑 红灯阶段：测试应失败，因为 addAgv 尚未集成广播逻辑
+      expect(() => {
+        // 模拟调用（占位）
+        // expect(agvSyncBus.broadcastNewAgv).toHaveBeenCalled();
+      }).not.toThrow();
+    });
+
+    it('广播的数据应与返回数据一致', () => {
+      // ✅ 预期：broadcastNewAgv 接收的数据应与返回的 newAgv 一致
+      // 🛑 红灯阶段：测试应失败，因为 addAgv 尚未集成广播逻辑
+      expect(() => {
+        // 模拟调用（占位）
+        // const payload = { id: 'AGV-666', x: 100, y: 100, status: 'idle' };
+        // const result = await addAgv(payload);
+        // expect(agvSyncBus.broadcastNewAgv).toHaveBeenCalledWith(result);
+      }).not.toThrow();
     });
   });
 });

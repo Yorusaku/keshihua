@@ -13,9 +13,22 @@
  * - 测试覆盖：onMounted（挂载）/ onBeforeUnmount（卸载）
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi, Mock } from 'vitest';
 import { mount } from '@vue/test-utils';
 import { nextTick, defineComponent, ref } from 'vue';
+import { agvSyncBus } from '@packages/shared';
+
+/**
+ * 🚨 Mock BroadcastChannel API（红灯阶段：模拟跨端通信）
+ */
+const mockBroadcastChannel = {
+  addEventListener: vi.fn(),
+  removeEventListener: vi.fn(),
+  postMessage: vi.fn(),
+  close: vi.fn(),
+};
+
+vi.stubGlobal('BroadcastChannel', vi.fn(() => mockBroadcastChannel));
 
 /**
  * 🚨 Mock zrender 模块（红灯阶段：返回空方法对象）
@@ -55,17 +68,29 @@ vi.mock('@packages/charts', () => ({
 }));
 
 /**
- * 🚨 Mock @packages/shared（DataBuffer）
+ * 🚨 Mock @packages/shared（DataBuffer + AgvSyncBus）
  */
-vi.mock('@packages/shared', () => ({
-  DataBuffer: {
-    getInstance: vi.fn(() => ({
-      pushData: vi.fn(),
-      getSnapshot: vi.fn(),
-      clear: vi.fn(),
-    })),
-  },
-}));
+vi.mock('@packages/shared', () => {
+  const mockAgvSyncBus = {
+    broadcastNewAgv: vi.fn(),
+    subscribeNewAgv: vi.fn((callback: (agv: any) => void) => {
+      // 模拟返回 unsubscribe 函数
+      return vi.fn();
+    }),
+  };
+
+  return {
+    DataBuffer: {
+      getInstance: vi.fn(() => ({
+        pushData: vi.fn(),
+        getSnapshot: vi.fn(),
+        clear: vi.fn(),
+      })),
+    },
+    agvSyncBus: mockAgvSyncBus,
+    AGV_SYNC_CHANNEL: 'agv-sync-channel',
+  };
+});
 
 /**
  * 🚨 Mock UI 组件（Layout / ScaleBox）
@@ -238,6 +263,55 @@ describe('Dashboard - Component Mounting & Lifecycle', () => {
 
         // ✅ 绿灯阶段预期：clear 被调用
         expect(DataBuffer.getInstance().clear).toHaveBeenCalled();
+      }).toThrow('Method not implemented: Dashboard');
+    });
+  });
+
+  /**
+   * 📌 新增测试块：Dashboard 侧跨端通信监听（红灯阶段）
+   * @description 测试红灯阶段：Dashboard.vue 尚未集成 AgvSyncBus 监听逻辑，测试应失败
+   */
+  describe('Cross-End Communication - onMounted', () => {
+    // 📋 测试用例 9：组件挂载时，subscribeNewAgv 应被调用
+    it('当组件挂载时，应该调用 agvSyncBus.subscribeNewAgv 订阅新车数据', () => {
+      // ✅ 按 V5 规约，此测试在红灯阶段必然失败（占位文件未实现）
+      // 绿灯阶段预期：
+      // 1. onMounted 钩子中调用 agvSyncBus.subscribeNewAgv
+      // 2. 回调函数内调用 DataBuffer.getInstance().pushData([newAgv])
+
+      expect(() => {
+        const wrapper = mount(MockDashboardComponent);
+        // ✅ 绿灯阶段预期：subscribeNewAgv 被调用
+        expect(agvSyncBus.subscribeNewAgv).toHaveBeenCalled();
+      }).toThrow('Method not implemented: Dashboard');
+    });
+
+    // 📋 测试用例 10：监听回调应写入 DataBuffer
+    it('当收到新车数据广播时，应该调用 DataBuffer.getInstance().pushData 写入缓冲池', () => {
+      // ✅ 按 V5 规约，此测试在红灯阶段必然失败（占位文件未实现）
+      // 绿灯阶段预期：
+      // 1. 监听回调收到 newAgv
+      // 2. 调用 DataBuffer.getInstance().pushData([newAgv])
+
+      expect(() => {
+        // ✅ 绿灯阶段预期：pushData 被调用
+        expect(agvSyncBus.subscribeNewAgv).toHaveBeenCalled();
+      }).toThrow('Method not implemented: Dashboard');
+    });
+
+    // 📋 测试用例 11：onUnmounted 应取消订阅
+    it('当组件卸载时，应该调用 unsubscribe 取消订阅', () => {
+      // ✅ 按 V5 规约，此测试在红灯阶段必然失败（占位文件未实现）
+      // 绿灯阶段预期：
+      // 1. onUnmounted 钩子中调用 unsubscribe
+      // 2. 清理监听器，防止内存泄漏
+
+      expect(() => {
+        const wrapper = mount(MockDashboardComponent);
+        wrapper.unmount();
+
+        // ✅ 绿灯阶段预期：unsubscribe 被调用
+        expect(agvSyncBus.subscribeNewAgv).toHaveBeenCalled();
       }).toThrow('Method not implemented: Dashboard');
     });
   });
