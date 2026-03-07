@@ -1,20 +1,36 @@
 /**
  * 应用入口文件
  * 文件路径：apps/dashboard/src/main.ts
- * 阶段：🟣 重构阶段（网络中枢注入）
+ * 阶段：🟢 绿灯阶段（注入 Monitor SDK）
  *
  * 📌 入口说明：
  * - 引入 createApp、router、Pinia、VueQueryPlugin
- * - 注入全局 queryClient（来自 @packages/shared）
+ * - 初始化 Monitor SDK（在 createApp 之前）
+ * - 注入全局 queryClient
  * - 挂载应用到 #app 节点
  */
 
 import { createApp } from 'vue';
 import { createPinia } from 'pinia';
 import { VueQueryPlugin } from '@tanstack/vue-query';
+import { initMonitor } from '@packages/shared';
 import { router } from '@/router';
-import { queryClient } from '@packages/shared';
 import App from '@/App.vue';
+
+// ✅ 初始化 Monitor SDK（在 createApp 之前）
+initMonitor({
+  dsn: '/api/report',
+  appId: 'dashboard',
+  performance: true,
+  debug: import.meta.env.DEV,
+  reporter: {
+    flushInterval: 5000,
+    maxQueueSize: 100,
+  },
+  error: {
+    withStack: false,
+  },
+});
 
 /**
  * 创建 Vue 应用实例
