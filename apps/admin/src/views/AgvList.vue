@@ -1,5 +1,5 @@
 <!-- AgvList.vue AGV 车辆管理 -->
-<!-- 阶段：🟣 重构阶段（高内聚、低耦合） -->
+<!-- 阶段：🔴 红灯阶段（占位文件） -->
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
@@ -101,6 +101,18 @@ const paginationConfig = computed(() => ({
   showTotal: (t: number) => `共 ${t} 条`,
   onChange: handlePagination,
 }));
+
+/**
+ * 📌 新增车辆弹窗状态（红灯阶段：占位）
+ */
+const addModalVisible = ref(false);
+
+// ❌ 红灯阶段：useAddAgvMutation 未实现
+// import { useAddAgvMutation } from '@packages/shared';
+// const mutation = useAddAgvMutation();
+// const isPending = computed(() => mutation.isPending);
+// const handleFormSubmit = () => { /* 待实现 */ };
+// const handleCloseAddModal = () => { /* 待实现 */ };
 </script>
 
 <template>
@@ -150,6 +162,18 @@ const paginationConfig = computed(() => ({
             重置
           </a-button>
         </a-form-item>
+
+        <!-- ✅ 新增车辆按钮（红灯阶段：占位） -->
+        <a-form-item>
+          <a-button
+            type="primary"
+            data-test="add-btn"
+            @click="addModalVisible = true"
+            :disabled="isLoading"
+          >
+            新增车辆
+          </a-button>
+        </a-form-item>
       </a-form>
 
       <!-- 数据表格区 -->
@@ -172,6 +196,54 @@ const paginationConfig = computed(() => ({
         </template>
       </a-table>
     </a-card>
+
+    <!-- ✅ 新增车辆弹窗（红灯阶段：占位 UI） -->
+    <a-modal
+      v-model:open="addModalVisible"
+      title="新增车辆"
+      data-test="add-modal"
+      :confirm-loading="false"
+      width="600px"
+      :destroy-on-close="true"
+      :mask-closable="false"
+      @ok="() => {}"
+      @cancel="() => {}"
+    >
+      <!-- ✅ 表单（红灯阶段：占位，移除 v-model 以避免编译错误） -->
+      <a-form layout="vertical">
+        <!-- 车号输入 -->
+        <a-form-item label="车号">
+          <a-input placeholder="请输入车号（如 AGV-001）" />
+        </a-form-item>
+
+        <!-- X 坐标输入 -->
+        <a-form-item label="X 坐标">
+          <a-input-number :min="0" placeholder="请输入 X 坐标" style="width: 100%" />
+        </a-form-item>
+
+        <!-- Y 坐标输入 -->
+        <a-form-item label="Y 坐标">
+          <a-input-number :min="0" placeholder="请输入 Y 坐标" style="width: 100%" />
+        </a-form-item>
+
+        <!-- 状态选择 -->
+        <a-form-item label="状态">
+          <a-select placeholder="请选择状态">
+            <a-select-option value="idle">空闲</a-select-option>
+            <a-select-option value="moving">移动中</a-select-option>
+            <a-select-option value="error">错误</a-select-option>
+          </a-select>
+        </a-form-item>
+      </a-form>
+
+      <!-- 底部按钮 -->
+      <template #footer>
+        <a-button @click="addModalVisible = false">取消</a-button>
+        <a-button type="primary" @click="() => {}" :loading="false">
+          确认新增
+        </a-button>
+      </template>
+    </a-modal>
   </div>
 </template>
 

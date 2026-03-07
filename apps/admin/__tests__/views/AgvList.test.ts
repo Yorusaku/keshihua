@@ -1,18 +1,19 @@
 /**
  * AgvList.vue 测试用例
- * 阶段：🟢 绿灯阶段（业务实现）
+ * 阶段：🔴 红灯阶段（测试先行）
  *
  * 📌 测试目标：
- * - 使用 vi.mock('@packages/shared') 拦截 useAgvListQuery Hook
- * - 测试 Loading 态、空数据态、搜索和分页功能
- * - 补全蓝灯提案中承诺的 5 个 UI 测试用例
+ * - 使用 vi.mock('@packages/shared') 拦截 useAgvListQuery Hook 和 useAddAgvMutation Hook
+ * - 测试新增车辆功能的 7 个 UI 测试用例
  * - 测试通过 VueQueryPlugin 初始化
+ * - Mock queryClient.invalidateQueries 验证缓存失效
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { mount } from '@vue/test-utils';
-import { ref, nextTick } from 'vue';
+import { ref, nextTick, reactive } from 'vue';
 import { VueQueryPlugin } from '@tanstack/vue-query';
+import { createPinia, setActivePinia } from 'pinia';
 
 /**
  * 📦 Mock useAgvListQuery Hook 返回值
@@ -26,6 +27,18 @@ const mockQueryResult = {
 };
 
 /**
+ * 📦 Mock useAddAgvMutation Hook 返回值
+ */
+const mockMutationResult = {
+  mutate: vi.fn(),
+  isPending: ref(false),
+  isSuccess: ref(false),
+  isError: ref(false),
+  error: ref(null),
+  reset: vi.fn(),
+};
+
+/**
  * 📦 Mock fetchAgvList API
  */
 const mockFetchAgvList = vi.fn().mockResolvedValue({
@@ -34,11 +47,33 @@ const mockFetchAgvList = vi.fn().mockResolvedValue({
 });
 
 /**
- * 📦 Mock @packages/shared - 拦截 useAgvListQuery 和 fetchAgvList
+ * 📦 Mock addAgv API
  */
-vi.mock('@packages/shared', () => ({
+const mockAddAgv = vi.fn().mockResolvedValue({
+  id: 'AGV-999',
+  x: 500,
+  y: 500,
+  status: 'idle',
+  timestamp: Date.now(),
+});
+
+/**
+ * 📦 Mock queryClient.invalidateQueries（用于验证缓存失效）
+ */
+const mockQueryClient = {
+  invalidateQueries: vi.fn(),
+};
+
+/**
+ * 📦 Mock @packages/shared - 拦截所有导出
+ */
+vi.mock('@packages/shared', async (ori) => ({
+  ...(await ori),
   useAgvListQuery: vi.fn(() => mockQueryResult),
+  useAddAgvMutation: vi.fn(() => mockMutationResult),
   fetchAgvList: mockFetchAgvList,
+  addAgv: mockAddAgv,
+  queryClient: mockQueryClient,
 }));
 
 /**
@@ -274,13 +309,13 @@ describe('AgvList - AGV List Page (Green Light Phase)', () => {
 
   describe('Response Data Processing', () => {
     it('分页数据应正确计算 slice 范围', async () => {
-      mockQueryResult.data.value = { 
-        total: 20, 
-        list: Array(10).fill({ id: 'AGV-001', x: 100, y: 200, status: 'idle', timestamp: Date.now() }) 
+      mockQueryResult.data.value = {
+        total: 20,
+        list: Array(10).fill({ id: 'AGV-001', x: 100, y: 200, status: 'idle', timestamp: Date.now() })
       };
-      
+
       const AgvListComponent = await createTestComponent();
-      
+
       const wrapper = mount(AgvListComponent, {
         global: {
           plugins: [VueQueryPlugin],
@@ -291,6 +326,237 @@ describe('AgvList - AGV List Page (Green Light Phase)', () => {
       // ✅ 验证：数据正确映射到 tableData
       expect(wrapper.vm.tableData).toHaveLength(10);
       expect(wrapper.vm.total).toBe(20);
+    });
+  });
+});
+
+/**
+ * 📌 新增车辆功能测试用例（红灯阶段）
+ * @description 测试红灯阶段：useAddAgvMutation 和弹窗 UI 未实现，测试应全部失败
+ */
+describe('AgvList - 新增车辆功能 (Red Light Phase)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    // ✅ 重置 Mock 数据
+    mockQueryResult.data.value = { total: 0, list: [] };
+    mockQueryResult.isLoading.value = true;
+    mockQueryResult.isError.value = false;
+    mockQueryResult.error.value = null;
+
+    // ✅ 重置 Mutation Mock
+    mockMutationResult.mutate.mockClear();
+    mockMutationResult.isPending.value = false;
+    mockMutationResult.isSuccess.value = false;
+    mockMutationResult.isError.value = false;
+    mockMutationResult.error.value = null;
+  });
+
+  describe('Add Button & Modal Interaction', () => {
+    it('点击"新增车辆"按钮应打开弹窗', async () => {
+      const AgvListComponent = await createTestComponent();
+
+      const wrapper = mount(AgvListComponent, {
+        global: {
+          plugins: [VueQueryPlugin],
+          stubs: ['ACard', 'ATable', 'AForm', 'AFormItem', 'AInput', 'ASelect', 'AOption', 'ATag', 'ARouterLink', 'AModal', 'ANumberInput'],
+        },
+      });
+
+      // ✅ 点击"新增车辆"按钮
+      const addButton = wrapper.find('[data-test="add-btn"]');
+      expect(addButton.exists()).toBe(true);
+
+      await addButton.trigger('click');
+
+      // ✅ 验证：弹窗应显示
+      expect(wrapper.findComponent({ ref: 'addModal' }).exists()).toBe(true);
+    });
+
+    it('弹窗打开时表单应重置（清空所有字段）', async () => {
+      const AgvListComponent = await createTestComponent();
+
+      const wrapper = mount(AgvListComponent, {
+        global: {
+          plugins: [VueQueryPlugin],
+          stubs: ['ACard', 'ATable', 'AForm', 'AFormItem', 'AInput', 'ASelect', 'AOption', 'ATag', 'ARouterLink', 'AModal', 'ANumberInput'],
+        },
+      });
+
+      // ✅ 点击"新增车辆"按钮打开弹窗
+      await wrapper.find('[data-test="add-btn"]').trigger('click');
+
+      // ✅ 验证：表单字段应被重置
+      // 红灯阶段：由于未实现，这些字段不存在或为默认值
+      expect(wrapper.vm.addForm).toBeDefined();
+      expect(wrapper.vm.addForm.id).toBe('');
+      expect(wrapper.vm.addForm.x).toBeUndefined();
+      expect(wrapper.vm.addForm.y).toBeUndefined();
+      expect(wrapper.vm.addForm.status).toBeUndefined();
+    });
+
+    it('弹窗打开时，确认按钮loading状态应为false', async () => {
+      const AgvListComponent = await createTestComponent();
+
+      const wrapper = mount(AgvListComponent, {
+        global: {
+          plugins: [VueQueryPlugin],
+          stubs: ['ACard', 'ATable', 'AForm', 'AFormItem', 'AInput', 'ASelect', 'AOption', 'ATag', 'ARouterLink', 'AModal', 'ANumberInput'],
+        },
+      });
+
+      // ✅ 点击"新增车辆"按钮
+      await wrapper.find('[data-test="add-btn"]').trigger('click');
+
+      // ✅ 验证：isPending 应为 false（mutation 未触发）
+      expect(wrapper.vm.isPending.value).toBe(false);
+    });
+  });
+
+  describe('Form Validation', () => {
+    it('提交空表单应拦截请求并显示校验错误信息', async () => {
+      const AgvListComponent = await createTestComponent();
+
+      const wrapper = mount(AgvListComponent, {
+        global: {
+          plugins: [VueQueryPlugin],
+          stubs: ['ACard', 'ATable', 'AForm', 'AFormItem', 'AInput', 'ASelect', 'AOption', 'ATag', 'ARouterLink', 'AModal', 'ANumberInput'],
+        },
+      });
+
+      // ✅ 打开弹窗
+      await wrapper.find('[data-test="add-btn"]').trigger('click');
+
+      // ✅ 提交空表单
+      const form = wrapper.find('form');
+      await form.trigger('submit');
+
+      // ✅ 验证：mutation.mutate 未被调用（请求被拦截）
+      expect(mockMutationResult.mutate).not.toHaveBeenCalled();
+
+      // ✅ 验证：弹窗保持打开状态
+      expect(wrapper.findComponent({ ref: 'addModal' }).exists()).toBe(true);
+    });
+
+    it('提交有效表单应触发 mutation.mutate', async () => {
+      const AgvListComponent = await createTestComponent();
+
+      const wrapper = mount(AgvListComponent, {
+        global: {
+          plugins: [VueQueryPlugin],
+          stubs: ['ACard', 'ATable', 'AForm', 'AFormItem', 'AInput', 'ASelect', 'AOption', 'ATag', 'ARouterLink', 'AModal', 'ANumberInput'],
+        },
+      });
+
+      // ✅ 打开弹窗
+      await wrapper.find('[data-test="add-btn"]').trigger('click');
+
+      // ✅ 填充表单
+      await wrapper.find('input[name="id"]').setValue('AGV-999');
+      await wrapper.find('input[name="x"]').setValue(500);
+      await wrapper.find('input[name="y"]').setValue(500);
+      await wrapper.find('select[name="status"]').setValue('idle');
+
+      // ✅ 提交表单
+      const form = wrapper.find('form');
+      await form.trigger('submit');
+
+      // ✅ 验证：mutation.mutate 被调用，入参正确
+      expect(mockMutationResult.mutate).toHaveBeenCalledWith({
+        id: 'AGV-999',
+        x: 500,
+        y: 500,
+        status: 'idle',
+      });
+    });
+
+    it('mutation 成功后应自动失效列表缓存', async () => {
+      const AgvListComponent = await createTestComponent();
+
+      const wrapper = mount(AgvListComponent, {
+        global: {
+          plugins: [VueQueryPlugin],
+          stubs: ['ACard', 'ATable', 'AForm', 'AFormItem', 'AInput', 'ASelect', 'AOption', 'ATag', 'ARouterLink', 'AModal', 'ANumberInput'],
+        },
+      });
+
+      // ✅ 打开弹窗并提交
+      await wrapper.find('[data-test="add-btn"]').trigger('click');
+      await wrapper.find('input[name="id"]').setValue('AGV-888');
+      await wrapper.find('input[name="x"]').setValue(300);
+      await wrapper.find('input[name="y"]').setValue(300);
+      await wrapper.find('select[name="status"]').setValue('moving');
+      await wrapper.find('form').trigger('submit');
+
+      // ✅ 模拟 mutation 成功
+      mockMutationResult.isSuccess.value = true;
+      await nextTick();
+
+      // ✅ 验证：queryClient.invalidateQueries 被调用
+      expect(mockQueryClient.invalidateQueries).toHaveBeenCalledWith({
+        queryKey: ['agvList'],
+      });
+    });
+
+    it('提交时确认按钮应显示 loading 状态（isPending）', async () => {
+      const AgvListComponent = await createTestComponent();
+
+      const wrapper = mount(AgvListComponent, {
+        global: {
+          plugins: [VueQueryPlugin],
+          stubs: ['ACard', 'ATable', 'AForm', 'AFormItem', 'AInput', 'ASelect', 'AOption', 'ATag', 'ARouterLink', 'AModal', 'ANumberInput'],
+        },
+      });
+
+      // ✅ 打开弹窗并提交
+      await wrapper.find('[data-test="add-btn"]').trigger('click');
+      await wrapper.find('input[name="id"]').setValue('AGV-777');
+      await wrapper.find('input[name="x"]').setValue(200);
+      await wrapper.find('input[name="y"]').setValue(200);
+      await wrapper.find('select[name="status"]').setValue('error');
+      await wrapper.find('form').trigger('submit');
+
+      // ✅ 模拟 mutation 开始（pending 状态）
+      mockMutationResult.isPending.value = true;
+      await nextTick();
+
+      // ✅ 验证：isPending 为 true
+      expect(wrapper.vm.isPending.value).toBe(true);
+    });
+  });
+
+  describe('Modal Close & Reset', () => {
+    it('关闭弹窗应重置表单状态', async () => {
+      const AgvListComponent = await createTestComponent();
+
+      const wrapper = mount(AgvListComponent, {
+        global: {
+          plugins: [VueQueryPlugin],
+          stubs: ['ACard', 'ATable', 'AForm', 'AFormItem', 'AInput', 'ASelect', 'AOption', 'ATag', 'ARouterLink', 'AModal', 'ANumberInput'],
+        },
+      });
+
+      // ✅ 打开弹窗
+      await wrapper.find('[data-test="add-btn"]').trigger('click');
+
+      // ✅ 填充表单
+      wrapper.vm.addForm = reactive({
+        id: 'AGV-666',
+        x: 100,
+        y: 100,
+        status: 'idle',
+      });
+
+      // ✅ 关闭弹窗
+      const modal = wrapper.findComponent({ ref: 'addModal' });
+      await modal.vm.$emit('cancel');
+
+      // ✅ 验证：弹窗关闭
+      expect(modal.exists()).toBe(false);
+
+      // ✅ 验证：再次打开时表单已重置
+      await wrapper.find('[data-test="add-btn"]').trigger('click');
+      expect(wrapper.vm.addForm.id).toBe('');
     });
   });
 });

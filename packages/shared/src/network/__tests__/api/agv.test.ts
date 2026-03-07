@@ -6,11 +6,13 @@
  * 📌 测试说明：
  * - 测试 fetchAgvList 函数的默认分页逻辑
  * - 测试带 keyword 和 status 的过滤逻辑
- * - 红灯阶段：fetchAgvList 未实现，测试应全部失败
+ * - 测试 addAgv 函数的新增数据逻辑
+ * - 红灯阶段：API 函数未实现，测试应全部失败
  */
 
-import { describe, it, expect, vi } from 'vitest';
-import { fetchAgvList, IAgvListParams, IAgvListResponse } from '../api/agv';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { fetchAgvList, addAgv, IAgvListParams, IAgvListResponse, IAddAgvPayload, IAgvData } from '../api/agv';
+import { mockAgvData } from '../api/agv';
 
 describe('fetchAgvList - AGV List API', () => {
   describe('Default Pagination', () => {
@@ -143,6 +145,74 @@ describe('fetchAgvList - AGV List API', () => {
         expect(item).toHaveProperty('status');
         expect(item).toHaveProperty('timestamp');
       });
+    });
+  });
+});
+
+/**
+ * 📌 addAgv API 测试用例（新增数据）
+ * @description 测试红灯阶段：addAgv 函数未实现，测试应全部失败
+ */
+describe('addAgv - AGV Add API', () => {
+  beforeEach(() => {
+    // 每次测试前重置 mockAgvData（在蓝灯/绿灯阶段需要实现 resetMockData）
+    // 红灯阶段：占位，不影响测试
+  });
+
+  describe('Response Structure', () => {
+    it('✅ 应该成功新增 AGV 并返回完整的数据对象', async () => {
+      const payload: IAddAgvPayload = {
+        id: 'AGV-999',
+        x: 500,
+        y: 500,
+        status: 'idle',
+      };
+
+      // ✅ 预期：addAgv 应返回包含完整 AGV 数据的对象
+      const result: IAgvData = await addAgv(payload);
+
+      expect(result).toMatchObject({
+        id: 'AGV-999',
+        x: 500,
+        y: 500,
+        status: 'idle',
+      });
+
+      expect(result).toHaveProperty('timestamp');
+    });
+
+    it('✅ 应该模拟 500ms 网络延迟', async () => {
+      const payload: IAddAgvPayload = {
+        id: 'AGV-888',
+        x: 300,
+        y: 300,
+        status: 'moving',
+      };
+
+      const startTime = Date.now();
+      await addAgv(payload);
+      const duration = Date.now() - startTime;
+
+      // ✅ 预期：延迟应在 500ms ± 50ms 范围内
+      expect(duration).toBeGreaterThanOrEqual(450);
+      expect(duration).toBeLessThanOrEqual(550);
+    });
+
+    it('✅ 应该将新数据插入到数组头部（unshift 行为）', async () => {
+      const initialId = mockAgvData[0].id;
+
+      const payload: IAddAgvPayload = {
+        id: 'AGV-777',
+        x: 200,
+        y: 200,
+        status: 'error',
+      };
+
+      await addAgv(payload);
+
+      // ✅ 预期：新增数据在头部，原数据被挤到第二位
+      expect(mockAgvData[0].id).toBe('AGV-777');
+      expect(mockAgvData[1].id).toBe(initialId);
     });
   });
 });

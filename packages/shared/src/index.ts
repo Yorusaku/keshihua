@@ -17,8 +17,11 @@ export type {
   CapacityQueryKey,
   IAgvListParams,
   IAgvListResponse,
+  IAddAgvPayload,
 } from './network/types';
 export { useCapacityQuery } from './network/queries/useCapacityQuery';
 export { fetchCapacityData } from './network/queries/capacity';
 export { useAgvListQuery } from './network/queries/useAgvListQuery';
 export { fetchAgvList } from './network/api/agv';
+export { useAddAgvMutation } from './network/queries/useAgvMutation';
+export { addAgv } from './network/api/agv';

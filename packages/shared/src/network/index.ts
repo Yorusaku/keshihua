@@ -10,6 +10,8 @@
  * - useCapacityQuery：Capacity 查询 Hook
  * - IAgvListParams/Response：AGV 列表数据类型
  * - useAgvListQuery：AGV 列表查询 Hook
+ * - IAddAgvPayload：AGV 新增入参类型
+ * - useAddAgvMutation：AGV 新增 Mutation Hook（占位）
  */
 
 // ✅ 核心类与方法导出
@@ -22,6 +24,7 @@ export type {
   UseCapacityMutationResult,
   ApiResponse,
   CapacityQueryKey,
+  IAddAgvPayload,
 } from './types';
 
 // ✅ Query Hooks 导出
@@ -31,3 +34,4 @@ export { useAgvListQuery } from './queries/useAgvListQuery';
 // ✅ API 导出
 export { fetchCapacityData } from './queries/capacity';
 export { fetchAgvList, IAgvListParams, IAgvListResponse } from './api/agv';
+export { addAgv, IAddAgvPayload } from './api/agv';
