@@ -1,13 +1,15 @@
 <!-- AgvList.vue AGV 车辆管理 -->
-<!-- 阶段：🟢 绿灯阶段（业务实现） -->
+<!-- 阶段：🟣 重构阶段（高内聚、低耦合） -->
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useAgvListQuery } from '@packages/shared';
 import type { IAgvListParams } from '@packages/shared';
+import { AGV_STATUS_TEXT_MAP, AGV_STATUS_COLOR_MAP } from '@/constants';
 
 /**
  * 📌 查询参数状态
+ * @description 高度聚合的查询参数对象
  */
 const queryParams = ref<IAgvListParams>({
   current: 1,
@@ -67,31 +69,55 @@ const handlePagination = (page: number, size: number) => {
 };
 
 /**
- * 📌 状态颜色映射
+ * 📌 表格列配置（数据化）
+ * @description 使用 Ant Design Vue 标准的 columns 配置，替代 template 中的标签
  */
-const getStatusColor = (status: string): string => {
-  const map: Record<string, string> = {
-    idle: 'success',
-    moving: 'processing',
-    error: 'error',
-  };
-  return map[status] || 'default';
-};
+const columns = [
+  {
+    title: 'ID',
+    dataIndex: 'id',
+    width: 120,
+    key: 'id',
+  },
+  {
+    title: 'X 坐标',
+    dataIndex: 'x',
+    width: 120,
+    key: 'x',
+  },
+  {
+    title: 'Y 坐标',
+    dataIndex: 'y',
+    width: 120,
+    key: 'y',
+  },
+  {
+    title: '状态',
+    dataIndex: 'status',
+    width: 120,
+    key: 'status',
+    // ✅ 使用插槽自定义状态列渲染
+    customCell: (_, record: { status: string }) => ({
+      attrs: {
+        color: AGV_STATUS_COLOR_MAP[record.status] || 'default',
+      },
+      children: AGV_STATUS_TEXT_MAP[record.status] || record.status,
+    }),
+  },
+];
 
 /**
- * 📌 状态文本映射
+ * 📌 状态标签渲染（复用 map）
  */
-const getStatusText = (status: string): string => {
-  const map: Record<string, string> = {
-    idle: '空闲',
-    moving: '移动中',
-    error: '错误',
-  };
-  return map[status] || status;
-};
+const getStatusColor = (status: string): string =>
+  AGV_STATUS_COLOR_MAP[status] || 'default';
+
+const getStatusText = (status: string): string =>
+  AGV_STATUS_TEXT_MAP[status] || status;
 
 /**
  * 📌 分页配置（与 queryParams 双向绑定）
+ * @description 高度聚合的分页配置对象
  */
 const paginationConfig = {
   current: queryParams.current,
@@ -100,9 +126,7 @@ const paginationConfig = {
   showSizeChanger: true,
   pageSizeOptions: ['10', '20', '50'],
   showTotal: (t: number) => `共 ${t} 条`,
-  onChange: (page: number, size: number) => {
-    handlePagination(page, size);
-  },
+  onChange: handlePagination,
 };
 </script>
 
@@ -134,9 +158,9 @@ const paginationConfig = {
             allow-clear
             style="width: 120px"
           >
-            <a-select-option value="idle">空闲</a-select-option>
-            <a-select-option value="moving">移动中</a-select-option>
-            <a-select-option value="error">错误</a-select-option>
+            <a-select-option value="idle">{{ AGV_STATUS_TEXT_MAP.idle }}</a-select-option>
+            <a-select-option value="moving">{{ AGV_STATUS_TEXT_MAP.moving }}</a-select-option>
+            <a-select-option value="error">{{ AGV_STATUS_TEXT_MAP.error }}</a-select-option>
           </a-select>
         </a-form-item>
 
@@ -159,21 +183,20 @@ const paginationConfig = {
       <a-table
         :dataSource="tableData"
         :loading="isLoading"
+        :columns="columns"
         :pagination="paginationConfig"
         :scroll="{ x: 'max-content' }"
         size="middle"
         rowKey="id"
       >
-        <a-table-column title="ID" dataIndex="id" width="120" />
-        <a-table-column title="X 坐标" dataIndex="x" width="120" />
-        <a-table-column title="Y 坐标" dataIndex="y" width="120" />
-        <a-table-column title="状态" dataIndex="status" width="120">
-          <template #cell="{ text }">
-            <a-tag :color="getStatusColor(text)">
-              {{ getStatusText(text) }}
+        <!-- 状态列自定义渲染 -->
+        <template #bodyCell="{ column, record }">
+          <template v-if="column.key === 'status'">
+            <a-tag :color="getStatusColor((record as { status: string }).status)">
+              {{ getStatusText((record as { status: string }).status) }}
             </a-tag>
           </template>
-        </a-table-column>
+        </template>
       </a-table>
     </a-card>
   </div>
