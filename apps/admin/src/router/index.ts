@@ -27,7 +27,6 @@ const routes: RouteRecordRaw[] = [
         component: AgvList,
         meta: {
           title: 'AGV 车辆管理',
-          // ✅ 直接把组件对象传给 meta
           icon: AimOutlined,
         },
       },

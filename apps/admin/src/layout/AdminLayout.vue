@@ -1,5 +1,5 @@
 <!-- AdminLayout.vue 主布局骨架 -->
-<!-- 阶段：🟣 纠偏阶段（Ant Design Vue） -->
+<!-- 阶段：🟣 精简重构（按需加载） -->
 
 <script setup lang="ts">
 // Props（预留扩展）
@@ -17,41 +17,49 @@ withDefaults(defineProps<AdminLayoutProps>(), {
 </script>
 
 <template>
-  <div class="admin-layout">
+  <a-layout class="admin-layout">
     <!-- 侧边栏 -->
     <Sidebar :collapsed="collapsed" />
 
     <!-- 主内容区 -->
-    <div class="admin-layout__main">
+    <a-layout class="admin-layout__main">
       <!-- 顶栏 -->
-      <Header v-if="showHeader" />
+      <a-layout-header v-if="showHeader" class="admin-layout__header">
+        <Header />
+      </a-layout-header>
 
       <!-- 路由出口 -->
-      <main class="admin-layout__content">
+      <a-layout-content class="admin-layout__content">
         <router-view />
-      </main>
-    </div>
-  </div>
+      </a-layout-content>
+    </a-layout>
+  </a-layout>
 </template>
 
 <style scoped>
 .admin-layout {
-  display: flex;
   height: 100vh;
   overflow: hidden;
 }
 
 .admin-layout__main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+  margin-left: 240px; /* 默认侧边栏宽度 */
+  transition: margin-left 0.3s;
+}
+
+.admin-layout__main.collapsed {
+  margin-left: 64px; /* 折叠侧边栏宽度 */
+}
+
+.admin-layout__header {
+  padding: 0 20px !important;
+  background-color: #fff;
+  box-shadow: 0 1px 4px rgba(0, 21, 41, 0.08);
 }
 
 .admin-layout__content {
-  flex: 1;
+  min-height: calc(100vh - 60px);
   padding: 20px;
-  overflow-y: auto;
   background-color: #f0f2f5;
 }
 </style>
