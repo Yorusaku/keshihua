@@ -1,11 +1,12 @@
 /**
  * Vite Test 环境配置
  * 文件路径：packages/charts/src/echarts/__tests__/setup.ts
- * 阶段：🟢 绿灯阶段（业务实现）
+ * 阶段：🔴 红灯阶段（传感器时序数据测试）
  *
  * 📌 配置说明：
  * - Vitest 全局 Mock 配置
  * - ECharts 和 @vueuse/core 的 Mock 实现
+ * - ⚠️ 传感器时序数据测试使用 LTTB 降采样配置验证
  */
 
 import { vi } from 'vitest';
@@ -37,6 +38,7 @@ const mockGraphic = {
 /**
  * Mock ECharts 模块
  * @description 提供 echarts.init 的模拟实现
+ * @remarks 🔴 红灯阶段：确保所有测试能正确拦截 init 调用
  */
 vi.mock('echarts', () => {
   return {
@@ -52,6 +54,7 @@ vi.mock('echarts', () => {
 /**
  * Mock @vueuse/core 模块
  * @description 提供 useResizeObserver 的模拟实现
+ * @remarks 🔴 红灯阶段：确保 resize 回调能被正确模拟
  */
 vi.mock('@vueuse/core', () => {
   const mockResizeCallback = vi.fn();
