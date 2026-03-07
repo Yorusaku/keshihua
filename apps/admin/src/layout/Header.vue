@@ -1,16 +1,11 @@
 <!-- Header.vue 顶部导航栏 -->
-<!-- 阶段：🟢 绿灯阶段（完整实现） -->
+<!-- 阶段：🟣 重构阶段（配置化驱动） -->
 
 <script setup lang="ts">
-import { computed } from 'vue';
-import { useRoute } from 'vue-router';
+import { useBreadcrumb } from '@/composables';
+import { ArrowDown } from '@element-plus/icons-vue';
 
-const route = useRoute();
-
-const breadcrumbList = computed(() => {
-  // 从 route.matched 中提取面包屑
-  return route.matched.filter((item) => item.meta.title);
-});
+const { breadcrumbList } = useBreadcrumb();
 
 const handleLogout = () => {
   // 退出登录逻辑（预留）
@@ -20,11 +15,15 @@ const handleLogout = () => {
 
 <template>
   <header class="header">
-    <!-- 面包屑 -->
+    <!-- 面包屑 - 动态渲染 -->
     <el-breadcrumb class="header__breadcrumb">
       <el-breadcrumb-item :to="{ path: '/' }">首页</el-breadcrumb-item>
-      <el-breadcrumb-item v-for="item in breadcrumbList" :key="item.path">
-        {{ item.meta.title }}
+      <el-breadcrumb-item
+        v-for="item in breadcrumbList"
+        :key="item.path"
+        :to="{ path: item.path }"
+      >
+        {{ item.title }}
       </el-breadcrumb-item>
     </el-breadcrumb>
 

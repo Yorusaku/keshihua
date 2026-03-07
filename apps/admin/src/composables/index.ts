@@ -1,6 +1,6 @@
 /**
  * Composables 统一导出
- * 阶段：🔴 红灯阶段（占位文件）
+ * 阶段：🟣 重构阶段（配置化驱动）
  */
 
-// ❌ 空实现 - 等待绿灯阶段添加实际 composables
+export * from './useBreadcrumb';
