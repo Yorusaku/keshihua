@@ -27,11 +27,12 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from 'vue';
 import { AgvRenderer } from '@packages/charts';
-import { DataBuffer, agvSyncBus } from '@packages/shared';
+import { DataBuffer } from '@packages/shared';
 import type { IAgvData } from '@packages/shared';
 import { Layout } from '@/components/layout';
 import { ScaleBox } from '@/components/scalebox';
 import { CapacityPanel } from '@/views/components';
+import { useAgvSync } from '@/composables/useAgvSync';
 
 // 📦 ZRender 容器 DOM 引用
 const canvasContainer = ref<HTMLDivElement | null>(null);
@@ -42,8 +43,8 @@ let renderer: AgvRenderer | null = null;
 // 📦 模拟器定时器 ID（清除用）
 let mockTimerId: number | null = null;
 
-// 📦 跨端同步取消订阅函数（清除用）
-let unsubscribe: (() => void) | null = null;
+// ✅ Hook 化：一行代码完成跨端监听（onMounted 订阅 + onBeforeUnmount 取消订阅）
+useAgvSync();
 
 /**
  * 🚀 启动高频数据模拟器（模拟 WebSocket 20Hz 推送）
@@ -94,7 +95,8 @@ const startRenderEngine = (): void => {
 
 /**
  * 🧹 销毁资源（防止内存泄漏）
- * @description 依次执行：清除模拟器定时器 → 取消跨端订阅 → 销毁 AgvRenderer → 清空 DataBuffer
+ * @description 依次执行：清除模拟器定时器 → 销毁 AgvRenderer → 清空 DataBuffer
+ * @note 跨端同步订阅已在 useAgvSync Hook 中自动清理
  *
  * 📌 防内存泄漏机制：
  * - 严格按照顺序销毁（避免依赖问题）
@@ -109,12 +111,6 @@ const destroyResources = (): void => {
     mockTimerId = null;
   }
 
-  // ✅ 取消跨端同步订阅（防止内存泄漏）
-  if (unsubscribe !== null) {
-    unsubscribe();
-    unsubscribe = null;
-  }
-
   // ✅ 销毁 AgvRenderer（防止内存泄漏）
   if (renderer) {
     renderer.dispose();
@@ -127,7 +123,8 @@ const destroyResources = (): void => {
 
 /**
  * 组件挂载（onMounted）
- * @description 依次启动：模拟器 → 渲染引擎 → 跨端同步订阅
+ * @description 依次启动：模拟器 → 渲染引擎
+ * @note 跨端同步订阅已在 useAgvSync Hook 中自动处理
  */
 onMounted(() => {
   // ✅ 启动高频数据模拟器（20Hz WebSocket 模拟）
@@ -135,11 +132,6 @@ onMounted(() => {
 
   // ✅ 启动渲染引擎（60fps 极限渲染）
   startRenderEngine();
-
-  // ✅ 订阅 Admin 侧广播的新车数据（跨端实时同步）
-  unsubscribe = agvSyncBus.subscribeNewAgv((agv: IAgvData) => {
-    DataBuffer.getInstance().pushData([agv]);
-  });
 });
 
 /**
