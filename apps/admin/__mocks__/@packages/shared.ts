@@ -5,7 +5,30 @@
  * 📌 Mock 策略：
  * - 拦截 DataBuffer.getInstance().getSnapshot()
  * - 返回模拟 AGV 数据数组
+ * - Mock useAgvListQuery 和 fetchAgvList
  */
+
+import { ref, type Ref } from 'vue';
+import { vi } from 'vitest';
+import type { IAgvListParams, IAgvListResponse } from '@packages/shared';
+
+/**
+ * 📦 Mock useAgvListQuery 返回值
+ */
+export const mockQueryResult = {
+  data: ref<IAgvListResponse | undefined>(undefined),
+  isLoading: ref(true),
+  isError: ref(false),
+  error: ref<Error | null>(null),
+  refetch: vi.fn(),
+};
+
+/**
+ * 📦 Mock useQueryClient
+ */
+export const mockQueryClient = {
+  clear: vi.fn(),
+};
 
 // ✅ 使用 vitest 的 vi.fn() 创建 mock 函数
 // @ts-ignore
@@ -27,3 +50,14 @@ export const DataBuffer = {
     ]),
   }),
 };
+
+// ✅ Mock useAgvListQuery Hook
+// @ts-ignore
+export const useAgvListQuery = vi.fn(() => mockQueryResult);
+
+// ✅ Mock fetchAgvList API
+// @ts-ignore
+export const fetchAgvList = vi.fn().mockResolvedValue({
+  total: 20,
+  list: [],
+});
