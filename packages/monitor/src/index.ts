@@ -1,7 +1,7 @@
 /**
  * SDK 入口
  * 文件路径：packages/monitor/src/index.ts
- * 阶段：🟣 重构阶段（常量抽离 + SSR 防御 + TSDoc 补全）
+ * 阶段：🟣 重构阶段（常量抽离 + SSR 防御 + TSDoc 补全 + 生命周期管理）
  */
 
 import { Reporter, type ReporterOptions } from './transport';
@@ -72,9 +72,9 @@ interface MonitorInstance {
   /**
    * 📌 关闭 SDK（停止所有采集）
    * @description
-   *  1. 清空 Reporter 定时器
-   *  2. 上报队列中剩余的数据
-   *  3. 停止所有事件监听
+   *  1. 先调用 teardownError() 恢复原生错误处理
+   *  2. 再调用 teardownPerf() 停止性能监听
+   *  3. 最后调用 reporter.close() 关闭上报队列
    */
   close: () => void;
 }
@@ -90,16 +90,21 @@ interface MonitorInstance {
  *  4. 返回 Monitor 实例（用于关闭 SDK）
  * @note 本函数具有 SSR 防御能力，在 Node.js/SSR 环境下会静默返回，不会抛出错误
  * @note 建议在应用入口的 createApp 之前调用此函数
+ * @note 提供了 close() 方法用于精确控制 SDK 的生命周期（例如 SSR 渲染后关闭）
  * @example
  * ```ts
  * import { initMonitor } from '@packages/monitor';
  *
- * initMonitor({
+ * // 在应用启动时初始化
+ * const monitorInstance = initMonitor({
  *   dsn: '/api/report',
  *   appId: 'admin',
  *   performance: true,
  *   debug: import.meta.env.DEV,
  * });
+ *
+ * // 在应用关闭或 SSR 渲染后清理
+ * monitorInstance.close();
  * ```
  */
 export function initMonitor(config: MonitorConfig): MonitorInstance {
@@ -124,17 +129,21 @@ export function initMonitor(config: MonitorConfig): MonitorInstance {
   // ✅ 创建 Reporter 实例
   const reporter = new Reporter(reporterOptions);
 
-  // ✅ 注册错误收集器
-  setupErrorCatch(reporter, config.error);
+  // ✅ 获取清理函数
+  const teardownError = setupErrorCatch(reporter, config.error);
+  let teardownPerf = () => {};
 
   // ✅ 注册性能收集器（可选）
   if (config.performance !== false) {
-    setupPerformanceCatch(reporter);
+    teardownPerf = setupPerformanceCatch(reporter);
   }
 
   // ✅ 返回 Monitor 实例（用于关闭 SDK）
   return {
     close: () => {
+      // ✅ 严格的生命周期管理：先撤销全局监听，再关闭上报队列
+      teardownError();
+      teardownPerf();
       reporter.close();
     },
   };

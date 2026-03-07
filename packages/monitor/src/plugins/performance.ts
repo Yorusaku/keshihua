@@ -1,7 +1,7 @@
 /**
  * 性能收集器
  * 文件路径：packages/monitor/src/plugins/performance.ts
- * 阶段：🟣 重构阶段（常量抽离 + SSR 防御 + TSDoc 补全）
+ * 阶段：🟣 重构阶段（常量抽离 + SSR 防御 + TSDoc 补全 + 生命周期管理）
  */
 
 import type { Reporter } from '../transport';
@@ -38,18 +38,26 @@ export interface PerformancePluginOptions {
 /**
  * 📌 设置性能收集器
  * @param reporter Reporter 实例，用于上报性能数据
+ * @returns 清理函数，调用后停止性能监听
  * @description
  *  1. 使用 PerformanceObserver 监听 'paint' 条目
  *  2. 提取 first-contentful-paint (FCP)
  *  3. 上报 FCP 数据
- *  4. 调用 disconnect() 停止监听（FCP 只需采集一次）
- * @note 本函数具有 SSR 防御能力，在 Node.js/SSR 环境下会静默返回，不会抛出错误
+ *  4. 返回 cleanup 函数用于销毁监听
+ * @note 本函数具有 SSR 防御能力，在 Node.js/SSR 环境下会返回空清理函数
  * @note 性能采集在页面生命周期中仅执行一次，确保数据准确性
+ * @note 添加了 try-catch 防御老旧浏览器不支持 'paint' 类型导致的崩溃
+ * @example
+ * ```ts
+ * const teardown = setupPerformanceCatch(reporter);
+ * // ... 页面加载完成
+ * teardown(); // ✅ 停止监听，释放资源
+ * ```
  */
-export function setupPerformanceCatch(reporter: Reporter): void {
+export function setupPerformanceCatch(reporter: Reporter): () => void {
   // ✅ SSR 防御：确保 window 和 PerformanceObserver 可用
   if (typeof window === 'undefined' || typeof PerformanceObserver === 'undefined') {
-    return;
+    return () => {}; // SSR 返回空函数
   }
 
   /**
@@ -83,7 +91,21 @@ export function setupPerformanceCatch(reporter: Reporter): void {
   });
 
   // ✅ 启动监听（仅监听 'paint' 条目）
-  observer.observe({
-    entryTypes: ['paint'],
-  });
+  try {
+    // ✅ 防御老旧浏览器不支持 'paint' 类型引发的崩溃
+    observer.observe({
+      entryTypes: ['paint'],
+    });
+  } catch (error) {
+    // 静默失败，不阻断业务
+    // ✅ 调试日志（可选）
+    if (typeof console !== 'undefined' && typeof console.error !== 'undefined') {
+      console.warn('[Monitor] PerformanceObserver observe failed:', error);
+    }
+  }
+
+  // ✅ 返回销毁函数
+  return () => {
+    observer.disconnect();
+  };
 }
