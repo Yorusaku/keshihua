@@ -127,6 +127,35 @@ const buildChartOptions = (props: TrendChartProps): EChartsOption => {
       },
     },
 
+    // ✅ dataZoom（内置与滑动条双轨配置）
+    // 📌 方案 A：最小侵入式实现（推荐）
+    // - dataZoom dan-type: 'inside' - 内置缩放（鼠标滚轮、拖拽）
+    // - dataZoom dan-type: 'slider' - 滑动条缩放控制
+    dataZoom: [
+      {
+        type: 'inside',
+        // ✅ 内置缩放：鼠标滚轮、拖拽
+        zoomOnMouseWheel: true,
+        moveOnMouseMove: true,
+        moveOnMouseWheel: true,
+        min: 0,
+        max: 100,
+      },
+      {
+        type: 'slider',
+        // ✅ 滑动条缩放：底部滑动条控制
+        show: true,
+        orient: 'horizontal',
+        width: '80%',
+        height: 12,
+        bottom: '5%',
+        min: 0,
+        max: 100,
+        handleSize: 8,
+        showDataShadow: false,
+      },
+    ],
+
     // ✅ 图例
     legend: props.title
       ? {

@@ -5,7 +5,7 @@
 
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router';
 import AdminLayout from '@/layout/AdminLayout.vue';
-import { AimOutlined, BarChartOutlined } from '@ant-design/icons-vue';
+import { AimOutlined, BarChartOutlined, LineChartOutlined } from '@ant-design/icons-vue';
 
 /**
  * 静态路由配置
@@ -36,6 +36,15 @@ const routes: RouteRecordRaw[] = [
         meta: {
           title: '产能透视报表',
           icon: BarChartOutlined,
+        },
+      },
+      {
+        path: 'sensor',
+        name: 'SensorTrend',
+        component: () => import('@/views/SensorTrend.vue'),
+        meta: {
+          title: '传感器时序趋势',
+          icon: LineChartOutlined,
         },
       },
     ],

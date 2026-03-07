@@ -1,51 +1,54 @@
-/**
- * SensorTrend 传感器趋势页面（占位）
- * 文件路径：apps/admin/src/views/SensorTrend.vue
- * 阶段：🔴 红灯阶段（测试先行 - 占位文件）
- *
- * 📌 说明：
- * - 此为占位文件，实际业务逻辑未实现
- * - 红灯阶段页面抛出错误以标识测试未覆盖
- * - 所有业务逻辑将由后续实现提供
- */
-
-<script setup lang="ts">
-/**
- * 📌 占位实现
- * @description 红灯阶段：页面未就绪，抛出未实现错误
- * @throws {Error} Not implemented (Red Light)
- */
-throw new Error('Not implemented (Red Light): SensorTrend page is not ready for testing');
-</script>
+<!-- SensorTrend.vue 传感器趋势页面 -->
+<!-- 阶段：🟢 绿灯阶段（业务实现） -->
 
 <template>
-  <div class="sensor-trend-placeholder">
-    <!-- 🔴 红灯阶段：占位模板 -->
-    <div class="placeholder-content">
-      <h1>SensorTrend Page - Red Light Phase</h1>
-      <p>Page implementation is not ready for testing</p>
-      <p>Sensor time series data will be displayed here</p>
-      <p>子组件：TrendChart (时序折线图)</p>
-    </div>
+  <div class="sensor-trend">
+    <a-card title="传感器时序趋势">
+      <!-- ✅ Loading 状态 -->
+      <a-spin :spinning="isLoading" tip="加载传感器数据中...">
+        <!-- ✅ TrendChart 图表组件 -->
+        <TrendChart :data="chartData" title="传感器时序趋势" color="#3B82F6" />
+      </a-spin>
+    </a-card>
   </div>
 </template>
 
-<style scoped>
-.sensor-trend-placeholder {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: #fff3cd;
-  border: 2px dashed #ffc107;
-  color: #856404;
-  flex-direction: column;
-  gap: 16px;
-  padding: 20px;
-}
+<script setup lang="ts">
+import { ref, onMounted } from 'vue';
+import TrendChart from '@packages/charts/src/echarts/TrendChart.vue';
+import { fetchSensorTimeSeries } from '@packages/shared';
 
-.placeholder-content {
-  text-align: center;
+// 📦 Loading 状态
+const isLoading = ref(true);
+
+// 📦 图表数据
+const chartData = ref<Array<{ time: number; value: number }>>([]);
+
+/**
+ * 🚀 onMounted：加载传感器时序数据
+ */
+onMounted(async () => {
+  try {
+    // ✅ 调用 API 获取十万级数据
+    const response = await fetchSensorTimeSeries({ count: 100000 });
+
+    // ✅ 数据转换：ISensorTimeSeriesDataPoint[] => { time, value }[]
+    chartData.value = response.data.map((point) => ({
+      time: point.timestamp,
+      value: point.value,
+    }));
+
+    // ✅ 隐藏 Loading 状态
+    isLoading.value = false;
+  } catch (error) {
+    console.error('SensorTrend: 加载数据失败', error);
+    isLoading.value = false;
+  }
+});
+</script>
+
+<style scoped>
+.sensor-trend {
+  padding: 20px 0;
 }
 </style>
