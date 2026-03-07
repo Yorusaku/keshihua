@@ -1,6 +1,6 @@
 /**
  * Vite 配置文件
- * 阶段：🟢 绿灯阶段（完整实现）
+ * 阶段：🟣 精简重构（按需加载）
  */
 
 import { defineConfig } from 'vite';
