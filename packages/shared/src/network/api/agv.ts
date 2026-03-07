@@ -107,12 +107,28 @@ export interface IAddAgvPayload {
 }
 
 /**
- * 📌 AGV 新增 Mock 函数（占位）
- * @description 红灯阶段：未实现，直接抛出错误
- * @param payload 新增数据入参
+ * 📌 AGV 新增 Mock 函数（绿灯实现）
+ * @description 实现 Mock API 逻辑：500ms延迟 + unshift 插入数组头部
+ * @param payload 新增数据入参 IAddAgvPayload
  * @returns 新增的 AGV 数据
  */
 export async function addAgv(payload: IAddAgvPayload): Promise<IAgvData> {
-  throw new Error('Function addAgv is not implemented yet');
+  // ✅ 模拟 500ms 网络延迟（与列表查询保持一致）
+  await new Promise(resolve => setTimeout(resolve, 500));
+
+  // ✅ 生成新的 AGV 数据对象
+  const newAgv: IAgvData = {
+    id: payload.id,
+    x: payload.x,
+    y: payload.y,
+    status: payload.status,
+    timestamp: Date.now(),  // ✅ 附加时间戳
+  };
+
+  // ✅ 将新数据 push 到 mockAgvData 数组头部（模拟真实新增）
+  mockAgvData.unshift(newAgv);
+
+  // ✅ 返回新增的数据（包含生成的 timestamp）
+  return newAgv;
 }
 

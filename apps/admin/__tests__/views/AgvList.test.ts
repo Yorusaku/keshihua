@@ -1,6 +1,6 @@
 /**
  * AgvList.vue 测试用例
- * 阶段：🔴 红灯阶段（测试先行）
+ * 阶段：🟢 绿灯阶段（业务实现）
  *
  * 📌 测试目标：
  * - 使用 vi.mock('@packages/shared') 拦截 useAgvListQuery Hook 和 useAddAgvMutation Hook
@@ -11,8 +11,8 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { mount } from '@vue/test-utils';
-import { ref, nextTick, reactive } from 'vue';
-import { VueQueryPlugin } from '@tanstack/vue-query';
+import { ref, nextTick, reactive, onMounted } from 'vue';
+import { VueQueryPlugin, useQueryClient } from '@tanstack/vue-query';
 import { createPinia, setActivePinia } from 'pinia';
 
 /**
