@@ -73,37 +73,10 @@ const handlePagination = (page: number, size: number) => {
  * @description 使用 Ant Design Vue 标准的 columns 配置，替代 template 中的标签
  */
 const columns = [
-  {
-    title: 'ID',
-    dataIndex: 'id',
-    width: 120,
-    key: 'id',
-  },
-  {
-    title: 'X 坐标',
-    dataIndex: 'x',
-    width: 120,
-    key: 'x',
-  },
-  {
-    title: 'Y 坐标',
-    dataIndex: 'y',
-    width: 120,
-    key: 'y',
-  },
-  {
-    title: '状态',
-    dataIndex: 'status',
-    width: 120,
-    key: 'status',
-    // ✅ 使用插槽自定义状态列渲染
-    customCell: (_, record: { status: string }) => ({
-      attrs: {
-        color: AGV_STATUS_COLOR_MAP[record.status] || 'default',
-      },
-      children: AGV_STATUS_TEXT_MAP[record.status] || record.status,
-    }),
-  },
+  { title: 'ID', dataIndex: 'id', width: 120, key: 'id' },
+  { title: 'X 坐标', dataIndex: 'x', width: 120, key: 'x' },
+  { title: 'Y 坐标', dataIndex: 'y', width: 120, key: 'y' },
+  { title: '状态', dataIndex: 'status', width: 120, key: 'status' }, // ✅ 干净利落，渲染交给 template 插槽
 ];
 
 /**
@@ -117,17 +90,17 @@ const getStatusText = (status: string): string =>
 
 /**
  * 📌 分页配置（与 queryParams 双向绑定）
- * @description 高度聚合的分页配置对象
+ * ✅ 核心修复：必须使用 computed 包裹，否则会丢失响应式导致分页器卡死！
  */
-const paginationConfig = {
-  current: queryParams.current,
-  pageSize: queryParams.pageSize,
+const paginationConfig = computed(() => ({
+  current: queryParams.value.current,
+  pageSize: queryParams.value.pageSize,
   total: total.value,
   showSizeChanger: true,
   pageSizeOptions: ['10', '20', '50'],
   showTotal: (t: number) => `共 ${t} 条`,
   onChange: handlePagination,
-};
+}));
 </script>
 
 <template>
