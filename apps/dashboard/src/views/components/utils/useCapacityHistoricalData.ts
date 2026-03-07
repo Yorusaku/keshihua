@@ -18,7 +18,7 @@
  */
 
 import { shallowRef, triggerRef, watch } from 'vue';
-import type { Ref, ShallowRef } from 'vue';
+import type { Ref } from 'vue';
 import type { CapacityData } from '@packages/shared';
 
 /**
@@ -26,7 +26,7 @@ import type { CapacityData } from '@packages/shared';
  * @description 封装历史时序数据的初始化、管理与更新逻辑
  * @param queryData - useCapacityQuery().data（响应式产能数据）
  * @returns {
- *   historicalData: ShallowRef<Array<{ time: number; value: number }>>,
+ *   historicalData: Ref<Array<{ time: number; value: number }>>,
  *   formatDefectRate: (rate: number | undefined) => string
  * }
  */

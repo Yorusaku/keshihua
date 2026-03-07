@@ -1,21 +1,19 @@
 /**
  * Admin 应用入口
- * 阶段：🟣 精简重构（按需加载）
+ * 阶段：🟣 纠偏阶段（Ant Design Vue 全局注册）
  */
 
 import { createApp } from 'vue';
 import { createPinia } from 'pinia';
+import Antd from 'ant-design-vue';
+import 'ant-design-vue/dist/reset.css';
 import App from './App.vue';
 import { router } from './router';
 
-// 仅保留基础的 reset 样式
-import 'ant-design-vue/dist/reset.css';
-
 const app = createApp(App);
 
-// ✅ 仅使用必要的插件
 app.use(createPinia());
 app.use(router);
+app.use(Antd);
 
-// ✅ 挂载应用
 app.mount('#app');

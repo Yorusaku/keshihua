@@ -16,26 +16,6 @@ const props = withDefaults(defineProps<SidebarProps>(), {
 
 const router = useRouter();
 
-// ✅ 路由图标组件（从路由 meta 中读取）
-const routeIcons = computed(() => {
-  const routes = router.options.routes;
-
-  // 从路由配置中提取菜单图标
-  const layoutRoute = routes.find((r: any) => r.children && r.children.length > 0);
-  if (!layoutRoute || !layoutRoute.children) return {};
-
-  // 处理相对路径和绝对路径的拼接
-  const icons: Record<string, any> = {};
-  layoutRoute.children.forEach((child: any) => {
-    if (child.meta?.icon) {
-      const fullPath = child.path === '' ? layoutRoute.path : `${layoutRoute.path}/${child.path}`;
-      icons[fullPath] = child.meta.icon;
-    }
-  });
-
-  return icons;
-});
-
 /**
  * 📌 从全局路由配置中动态生成菜单项
  * @description 读取 router.options.routes，自动解析出需要显示的菜单
@@ -60,25 +40,16 @@ const menuItems = computed(() => {
         icon: child.meta?.icon,
       };
     })
-    .sort((a, b) => ((a.meta?.weight || 0) - (b.meta?.weight || 0)));
+    .sort((a, b) => {
+      const weightA = (a as any).meta?.weight || 0;
+      const weightB = (b as any).meta?.weight || 0;
+      return weightA - weightB;
+    });
 });
-
-/**
- * 📌 菜单点击处理
- */
-const onSelect: MenuProps['onSelect'] = ({ key }) => {
-  // Vue Router 会自动处理导航，无需手动处理
-};
 </script>
 
 <template>
-  <a-layout-sider
-    :width="collapsed ? '64px' : '240px'"
-    class="sidebar"
-    :collapsible="true"
-    :collapsed="collapsed"
-    :trigger="null"
-  >
+  <div class="sidebar">
     <!-- Logo -->
     <div class="sidebar__logo">
       <svg v-if="collapsed" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
@@ -97,19 +68,24 @@ const onSelect: MenuProps['onSelect'] = ({ key }) => {
         <component :is="IconComponent" v-if="IconComponent" />
       </template>
     </a-menu>
-  </a-layout-sider>
+  </div>
 </template>
 
 <style scoped>
 .sidebar {
   height: 100vh;
   background-color: #001529;
+  display: flex;
+  flex-direction: column;
   flex-shrink: 0;
 }
 
 .sidebar__logo {
-  padding: 20px;
-  text-align: center;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: #fff;
+  flex-shrink: 0;
 }
 </style>

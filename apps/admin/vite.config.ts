@@ -1,6 +1,6 @@
 /**
  * Vite 配置文件
- * 阶段：🟣 精简重构（按需加载）
+ * 阶段：🟣 精简重构（Ant Design Vue 全局注册）
  */
 
 import { defineConfig } from 'vite';

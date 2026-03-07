@@ -14,7 +14,7 @@ const handleLogout = () => {
 </script>
 
 <template>
-  <header class="header">
+  <a-layout-header class="header">
     <!-- 面包屑 - 动态渲染 -->
     <a-breadcrumb class="header__breadcrumb">
       <a-breadcrumb-item>
@@ -38,7 +38,7 @@ const handleLogout = () => {
         </a-menu>
       </template>
     </a-dropdown>
-  </header>
+  </a-layout-header>
 </template>
 
 <style scoped>
@@ -46,8 +46,7 @@ const handleLogout = () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 60px;
-  padding: 0 20px;
+  padding: 0 24px;
   background-color: #fff;
   box-shadow: 0 1px 4px rgba(0, 21, 41, 0.08);
 }

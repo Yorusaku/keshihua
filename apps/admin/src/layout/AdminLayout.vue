@@ -17,9 +17,18 @@ withDefaults(defineProps<AdminLayoutProps>(), {
 </script>
 
 <template>
-  <a-layout class="admin-layout">
+  <a-layout class="admin-layout" has-sider>
     <!-- 侧边栏 -->
-    <Sidebar :collapsed="collapsed" />
+    <a-layout-sider
+      :width="collapsed ? '64px' : '240px'"
+      class="admin-layout__sidebar"
+      :collapsible="true"
+      :collapsed="collapsed"
+      :trigger="null"
+      theme="dark"
+    >
+      <Sidebar :collapsed="collapsed" />
+    </a-layout-sider>
 
     <!-- 主内容区 -->
     <a-layout class="admin-layout__main">
@@ -42,7 +51,13 @@ withDefaults(defineProps<AdminLayoutProps>(), {
   overflow: hidden;
 }
 
+.admin-layout__sidebar {
+  flex-shrink: 0;
+}
+
 .admin-layout__main {
+  display: flex;
+  flex-direction: column;
   margin-left: 240px; /* 默认侧边栏宽度 */
   transition: margin-left 0.3s;
 }
@@ -55,11 +70,14 @@ withDefaults(defineProps<AdminLayoutProps>(), {
   padding: 0 20px !important;
   background-color: #fff;
   box-shadow: 0 1px 4px rgba(0, 21, 41, 0.08);
+  display: flex;
+  align-items: center;
 }
 
 .admin-layout__content {
-  min-height: calc(100vh - 60px);
+  flex: 1;
   padding: 20px;
   background-color: #f0f2f5;
+  overflow-y: auto;
 }
 </style>

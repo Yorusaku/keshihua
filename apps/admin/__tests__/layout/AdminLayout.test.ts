@@ -5,7 +5,7 @@
  * 📌 测试目标：
  * - 验证 AdminLayout 正确渲染 Sidebar、Header
  * - 验证路由出口正确挂载子组件
- * - 验证 Element Plus 组件被正确 stub
+ * - 验证 Ant Design Vue 组件被正确 stub
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
@@ -19,15 +19,18 @@ import { AgvList } from '@/views';
  * @description 避免组件在 Vitest 环境下的缺失报错
  */
 const antdStubs = [
+  'a-layout',
   'a-layout-sider',
   'a-menu',
   'a-menu-item',
   'a-layout-header',
+  'a-layout-content',
   'a-breadcrumb',
   'a-breadcrumb-item',
   'a-dropdown',
   'a-menu-overlay',
   'a-avatar',
+  'a-menu',
 ];
 
 /**

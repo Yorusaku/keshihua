@@ -38,15 +38,15 @@ export function useBreadcrumb() {
     // 过滤掉重定向路由和空标题路由
     return route.matched
       .filter((match) => {
-        const r = match.route as AppRouteRecordRaw;
+        // ❌ 修复：禁止使用 match.route，直接访问 match 对象
         // 排除根路径 '/'（通常不需要显示）
-        return r.path !== '/' && r.meta?.title;
+        return match.path !== '/' && match.meta?.title;
       })
       .map((match, index, array) => {
-        const r = match.route as AppRouteRecordRaw;
+        // ❌ 修复：禁止使用 match.route，直接访问 match 对象
         return {
-          path: r.path,
-          title: r.meta?.title || '',
+          path: match.path,
+          title: match.meta?.title || '',
           active: index === array.length - 1,
         } as BreadcrumbItem;
       });
