@@ -1,9 +1,9 @@
 /**
  * 测试环境配置
- * 阶段：🟣 重构阶段（Vue Query + S2 Mock）
+ * 阶段：🟢 绿灯阶段（SensorTrend 测试）
  *
  * 📌 Mock 设置：
- * - @packages/shared：useCapacityReportQuery Hook
+ * - @packages/shared：useSensorTrendQuery Hook
  * - @antv/s2：PivotSheet 类
  */
 

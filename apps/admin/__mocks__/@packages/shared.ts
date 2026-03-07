@@ -1,100 +1,79 @@
 /**
  * Mock @packages/shared
- * 阶段：🟣 重构阶段（Vue Query Hook 拦截）
+ * 阶段：🟢 绿灯阶段（SensorTrend Query Hook 拦截）
  */
 
 import { ref } from 'vue';
-import type { UseQueryResult } from '@tanstack/vue-query';
 
-// ✅ Mock useAgvListQuery 返回值
-const mockAgvListQueryResult = {
-  data: ref({ total: 20, list: [] }),
-  isLoading: ref(true),
-  isError: ref(false),
-  error: ref(null),
-  refetch: vi.fn(),
+// ✅ Mock 数据容器（在模块顶层定义）
+let mockSensorTrendData = ref<any>(null);
+let mockSensorTrendLoading = ref(true);
+let mockSensorTrendError = ref(false);
+let mockSensorTrendIsError = ref(false);
+
+/**
+ * 📌 清理 Mock 数据
+ */
+export const clearMockSensorTrendData = () => {
+  mockSensorTrendData = ref<any>(null);
+  mockSensorTrendLoading = ref(true);
+  mockSensorTrendError = ref(false);
+  mockSensorTrendIsError = ref(false);
 };
 
-// ✅ Mock useCapacityReportQuery 返回值
-const mockReportQueryResult = {
-  data: ref([]),
-  isLoading: ref(true),
-  isError: ref(false),
-  error: ref(null),
-  refetch: vi.fn(),
+/**
+ * 📌 使用者可配置的 Mock 返回值
+ * @description 用于控制 useSensorTrendQuery 返回的测试数据
+ */
+export const mockSensorTrendQueryResult = {
+  get data() {
+    return mockSensorTrendData;
+  },
+  set data(value: any) {
+    mockSensorTrendData = value;
+  },
+  get isLoading() {
+    return mockSensorTrendLoading;
+  },
+  set isLoading(value: boolean) {
+    mockSensorTrendLoading = value;
+  },
+  get isError() {
+    return mockSensorTrendIsError;
+  },
+  set isError(value: boolean) {
+    mockSensorTrendIsError = value;
+  },
+  get error() {
+    return mockSensorTrendError;
+  },
+  set error(value: any) {
+    mockSensorTrendError = value;
+  },
 };
 
-// ✅ Mock useAgvMutation 返回值
-const mockAgvMutationResult = {
-  mutate: vi.fn(),
-  isPending: ref(false),
-  isSuccess: ref(false),
-  isError: ref(false),
-  error: ref(null),
-  reset: vi.fn(),
+/**
+ * 📌 Mock refetch 函数
+ */
+export const mockRefetch = vi.fn?.() => Promise.resolve();
+
+/**
+ * 📌 实际的 useSensorTrendQuery 实现
+ * @description 返回配置化的 Mock 结果
+ */
+export const actualSensorTrendQuery = (params: any) => {
+  return {
+    data: mockSensorTrendData,
+    isLoading: mockSensorTrendLoading,
+    isError: mockSensorTrendIsError,
+    error: mockSensorTrendError,
+    refetch: mockRefetch,
+  };
 };
-
-// ✅ Mock useCapacityMutation 返回值
-const mockCapacityMutationResult = {
-  mutate: vi.fn(),
-  isPending: ref(false),
-  isSuccess: ref(false),
-  isError: ref(false),
-  error: ref(null),
-  reset: vi.fn(),
-};
-
-// ✅ 实际的 API 返回值（用于非 Mock 测试）
-const actualAgvListQuery = (params: any) => ({
-  data: ref({ total: 20, list: [] }),
-  isLoading: ref(true),
-  isError: ref(false),
-  error: ref(null),
-  refetch: vi.fn(),
-});
-
-const actualReportQuery = (params: any) => ({
-  data: ref([]),
-  isLoading: ref(true),
-  isError: ref(false),
-  error: ref(null),
-  refetch: vi.fn(),
-});
-
-const actualAgvMutation = () => ({
-  mutate: vi.fn(),
-  isPending: ref(false),
-  isSuccess: ref(false),
-  isError: ref(false),
-  error: ref(null),
-  reset: vi.fn(),
-});
-
-const actualCapacityMutation = () => ({
-  mutate: vi.fn(),
-  isPending: ref(false),
-  isSuccess: ref(false),
-  isError: ref(false),
-  error: ref(null),
-  reset: vi.fn(),
-});
 
 // ✅ 导出所有 API（使用 vi.fn 拦截调用）
-export const useAgvListQuery = vi.fn(actualAgvListQuery);
-export const useCapacityReportQuery = vi.fn(actualReportQuery);
-export const useAgvMutation = vi.fn(actualAgvMutation);
-export const useCapacityMutation = vi.fn(actualCapacityMutation);
+export const useSensorTrendQuery = vi.fn(actualSensorTrendQuery);
 
-// ✅ 导出原始 API（用于非 Mock 测试）
-export const getMockAgvListQueryResult = () => mockAgvListQueryResult;
-export const getMockReportQueryResult = () => mockReportQueryResult;
-export const getMockAgvMutationResult = () => mockAgvMutationResult;
-export const getMockCapacityMutationResult = () => mockCapacityMutationResult;
-
-// ✅ 导出所有 API（用于导入测试）
-export * from '@packages/shared/src/network/api/agv';
-export * from '@packages/shared/src/network/api/report';
-export * from '@packages/shared/src/network/queries/useAgvMutation';
-export * from '@packages/shared/src/network/queries/useAgvListQuery';
-export * from '@packages/shared/src/network/queries/useReportQuery';
-export * from '@packages/shared/src/network/queries/useCapacityQuery';
+// ✅ 导出传感器 API（用于测试数据生成）
+export * from '@packages/shared/src/network/api/sensor';
+export * from '@packages/shared/src/network/queries/useSensorQuery';

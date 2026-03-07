@@ -25,10 +25,5 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['__tests__/setup.ts'],
     include: ['__tests__/**/*.test.ts'],
-    // ✅ 使用 moduleNameMapper 映射依赖到 mock
-    moduleNameMapper: {
-      '^@packages/shared$': '<rootDir>/__mocks__/@packages/shared.ts',
-      '^@antv/s2$': '<rootDir>/__mocks__/@antv/s2.ts',
-    },
   },
 });
