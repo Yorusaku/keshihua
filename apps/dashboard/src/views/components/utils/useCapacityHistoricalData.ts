@@ -10,10 +10,15 @@
  * 📌 Composable 约束：
  * - 输入：useCapacityQuery().data（产能数据）
  * - 输出：historicalData（响应式历史数组）、formatDefectRate（格式化方法）
+ *
+ * 🚀 性能优化：shallowRef + triggerRef
+ * - 使用 shallowRef 避免 Vue 为 50,000+ 个对象创建深层 Proxy 代理
+ * - ECharts 不需要响应式数据，只需数组引用即可
+ * - 手动调用 triggerRef 通知 Vue 更新，精确控制重渲染时机
  */
 
-import { ref, watch } from 'vue';
-import type { Ref } from 'vue';
+import { shallowRef, triggerRef, watch } from 'vue';
+import type { Ref, ShallowRef } from 'vue';
 import type { CapacityData } from '@packages/shared';
 
 /**
@@ -21,7 +26,7 @@ import type { CapacityData } from '@packages/shared';
  * @description 封装历史时序数据的初始化、管理与更新逻辑
  * @param queryData - useCapacityQuery().data（响应式产能数据）
  * @returns {
- *   historicalData: Ref<Array<{ time: number; value: number }>>,
+ *   historicalData: ShallowRef<Array<{ time: number; value: number }>>,
  *   formatDefectRate: (rate: number | undefined) => string
  * }
  */
@@ -29,10 +34,13 @@ export const useCapacityHistoricalData = (
   queryData: Ref<CapacityData | undefined>
 ) => {
   /**
-   * 📦 响应式引用：历史时序数据（50,000+ 条）
-   * @description 初始化调用 initializeHistoricalData() 生成 50,000 条数据
+   * 📦 浅层响应式引用：历史时序数据（50,000+ 条）
+   * @description 使用 shallowRef 避免 Vue 为每个对象创建 Proxy 代理
+   * - Vue 只追踪 .value 引用变化，不追踪数组内部变化
+   * - 需要手动调用 triggerRef() 通知 Vue 更新
+   * - 适用于 ECharts 等不需要响应式的海量数据场景
    */
-  const historicalData = ref<Array<{ time: number; value: number }>>([]);
+  const historicalData = shallowRef<Array<{ time: number; value: number }>>([]);
 
   /**
    * 📦 初始化历史数据
@@ -109,6 +117,10 @@ export const useCapacityHistoricalData = (
             historicalData.value.length - MAX_POINTS
           );
         }
+
+        // ✅ 神之一手：手动通知 Vue "我的数据变了，去通知 TrendChart 重绘吧"
+        // 📌 shallowRef 不会自动追踪数组内部变化，需要手动触发更新
+        triggerRef(historicalData);
       }
     },
     { immediate: true }, // ✅ immediate: true - 立即执行一次（初始化数据）
