@@ -8,7 +8,9 @@ import { computed, onMounted, ref } from 'vue';
 import { TrendChart } from '@packages/charts';
 import type { ICapacityReportData } from '@packages/shared';
 import { ensureSharedProvider } from '@/composables';
+import { useFeedback, SkeletonCard, SkeletonChart } from '@packages/shared';
 
+const { toast } = useFeedback();
 const loading = ref(false);
 const sourceLabel = ref('--');
 const reportRows = ref<ICapacityReportData[]>([]);
@@ -45,6 +47,8 @@ async function refreshReport(): Promise<void> {
         time: new Date(date).getTime(),
         value,
       }));
+  } catch (error) {
+    toast.error('获取报表失败：' + (error as Error).message);
   } finally {
     loading.value = false;
   }
@@ -61,7 +65,13 @@ onMounted(async () => {
       <span class="report-page__source">数据源：{{ sourceLabel }}</span>
     </template>
 
-    <a-spin :spinning="loading">
+    <template v-if="loading && !reportRows.length">
+      <SkeletonCard :lines="3" />
+      <div style="margin-top: 16px">
+        <SkeletonChart />
+      </div>
+    </template>
+    <a-spin v-else :spinning="loading">
       <div class="report-page__kpi">
         <div class="kpi-card">
           <span>统计行数</span>

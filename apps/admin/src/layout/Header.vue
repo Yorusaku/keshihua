@@ -6,6 +6,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useRoute } from 'vue-router';
+import { useBreadcrumb } from '@/composables';
 
 const props = defineProps<{
   collapsed: boolean;
@@ -16,6 +17,7 @@ const emit = defineEmits<{
 }>();
 
 const route = useRoute();
+const { breadcrumbList } = useBreadcrumb();
 
 const pageTitle = computed(() => (route.meta.title as string) || '工作台');
 const contextText = computed(() => {
@@ -39,8 +41,17 @@ const contextText = computed(() => {
     </button>
 
     <div class="admin-header__title">
-      <strong>{{ pageTitle }}</strong>
-      <span>{{ contextText }}</span>
+      <div class="admin-header__breadcrumb">
+        <a-breadcrumb>
+          <a-breadcrumb-item v-for="item in breadcrumbList" :key="item.path">
+            <router-link v-if="!item.active" :to="item.path">
+              {{ item.title }}
+            </router-link>
+            <span v-else>{{ item.title }}</span>
+          </a-breadcrumb-item>
+        </a-breadcrumb>
+      </div>
+      <span class="admin-header__context">{{ contextText }}</span>
     </div>
 
     <div class="admin-header__meta">
@@ -77,14 +88,28 @@ const contextText = computed(() => {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  gap: 4px;
 }
 
-.admin-header__title strong {
-  font-size: 17px;
+.admin-header__breadcrumb {
+  font-size: 15px;
+}
+
+.admin-header__breadcrumb :deep(.ant-breadcrumb-link) {
   color: #1d3d58;
+  font-weight: 500;
 }
 
-.admin-header__title span {
+.admin-header__breadcrumb :deep(.ant-breadcrumb-link a) {
+  color: #567894;
+  transition: color 0.2s;
+}
+
+.admin-header__breadcrumb :deep(.ant-breadcrumb-link a:hover) {
+  color: #1890ff;
+}
+
+.admin-header__context {
   color: #567894;
   font-size: 12px;
   white-space: nowrap;

@@ -8,6 +8,7 @@ import { computed, onMounted, reactive, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import type { IAgvData } from '@packages/shared';
 import { ensureSharedProvider } from '@/composables';
+import { useFeedback, SkeletonTable } from '@packages/shared';
 
 interface AgvQueryForm {
   keyword: string;
@@ -15,6 +16,7 @@ interface AgvQueryForm {
 }
 
 const route = useRoute();
+const { toast, confirmDelete, withLoading } = useFeedback();
 const loading = ref(false);
 const sourceLabel = ref('--');
 const tableData = ref<IAgvData[]>([]);
@@ -53,6 +55,8 @@ async function fetchList(): Promise<void> {
     });
     tableData.value = response.list;
     total.value = response.total;
+  } catch (error) {
+    toast.error('获取列表失败：' + (error as Error).message);
   } finally {
     loading.value = false;
   }
@@ -77,15 +81,23 @@ async function handlePageChange(page: number, size: number): Promise<void> {
 }
 
 async function handleAddMockAgv(): Promise<void> {
-  const provider = await ensureSharedProvider('auto');
-  const nextId = `AGV-${String(Date.now()).slice(-4)}`;
-  await provider.addAgv({
-    id: nextId,
-    x: 200 + Math.random() * 800,
-    y: 120 + Math.random() * 600,
-    status: 'idle',
-  });
-  await fetchList();
+  try {
+    const provider = await ensureSharedProvider('auto');
+    const nextId = `AGV-${String(Date.now()).slice(-4)}`;
+    await withLoading(
+      provider.addAgv({
+        id: nextId,
+        x: 200 + Math.random() * 800,
+        y: 120 + Math.random() * 600,
+        status: 'idle',
+      }),
+      '添加中...'
+    );
+    toast.success('添加成功');
+    await fetchList();
+  } catch (error) {
+    toast.error('添加失败：' + (error as Error).message);
+  }
 }
 
 function statusColor(status: IAgvData['status']): string {
@@ -133,7 +145,9 @@ onMounted(async () => {
       <a-button :disabled="loading" @click="handleAddMockAgv">新增模拟车辆</a-button>
     </div>
 
+    <SkeletonTable v-if="loading && !tableData.length" />
     <a-table
+      v-else
       row-key="id"
       :data-source="tableData"
       :loading="loading"
