@@ -7,6 +7,7 @@
 import { ref } from 'vue';
 import Sidebar from './Sidebar.vue';
 import Header from './Header.vue';
+import CommandPalette from '@/components/navigation/CommandPalette.vue';
 
 const collapsed = ref(false);
 
@@ -25,6 +26,8 @@ function toggleCollapsed(): void {
         <router-view />
       </a-layout-content>
     </a-layout>
+
+    <CommandPalette />
   </a-layout>
 </template>
 

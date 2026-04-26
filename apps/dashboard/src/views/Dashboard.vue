@@ -10,6 +10,7 @@ import { AgvRenderer } from '@packages/charts';
 import {
   DataBuffer,
   createDataProvider,
+  useFeedback,
   type AgvLiveItem,
   type DataProvider,
   type DashboardSnapshot,
@@ -19,6 +20,8 @@ import {
 import { Layout } from '@/components/layout';
 import { ScaleBox } from '@/components/scalebox';
 import { useDashboardUiStore } from '@/stores/dashboardUi';
+
+const { toast, withLoading } = useFeedback();
 
 const uiStore = useDashboardUiStore();
 const { filters, focusedAgvId, detailDrawerOpen } = storeToRefs(uiStore);
@@ -195,7 +198,9 @@ async function fetchSnapshot(): Promise<void> {
       uiStore.openAlertDetail(data.alerts[0].id);
     }
   } catch (error) {
-    loadingError.value = error instanceof Error ? error.message : '快照拉取失败';
+    const errorMessage = error instanceof Error ? error.message : '快照拉取失败';
+    loadingError.value = errorMessage;
+    toast.error('数据加载失败：' + errorMessage);
   } finally {
     snapshotPending = false;
   }
@@ -205,11 +210,19 @@ async function acknowledgeAlert(alert: SensorAlertItem): Promise<void> {
   if (!providerRef.value) {
     return;
   }
-  await providerRef.value.acknowledgeAlert({
-    alertId: alert.id,
-    operator: 'dashboard',
-  });
-  await fetchSnapshot();
+  try {
+    await withLoading(
+      providerRef.value.acknowledgeAlert({
+        alertId: alert.id,
+        operator: 'dashboard',
+      }),
+      '确认中...'
+    );
+    toast.success('告警已确认');
+    await fetchSnapshot();
+  } catch (error) {
+    toast.error('确认失败：' + (error instanceof Error ? error.message : '未知错误'));
+  }
 }
 
 function openAlertDetail(alert: SensorAlertItem): void {
@@ -231,21 +244,32 @@ async function bootstrapDashboard(): Promise<void> {
   loading.value = true;
   loadingError.value = '';
 
-  const provider = markRaw(await createDataProvider({ mode: 'auto' }));
-  providerRef.value = provider;
+  try {
+    const provider = markRaw(await createDataProvider({ mode: 'auto' }));
+    providerRef.value = provider;
 
-  await fetchSnapshot();
-  initRenderer();
+    await fetchSnapshot();
+    initRenderer();
 
-  stopAgvStream = provider.startAgvStream((nextAgv) => {
-    syncAgvMap(nextAgv);
-  }, 120);
+    stopAgvStream = provider.startAgvStream((nextAgv) => {
+      syncAgvMap(nextAgv);
+    }, 120);
 
-  snapshotTimerId = window.setInterval(() => {
-    void fetchSnapshot();
-  }, 5000);
+    snapshotTimerId = window.setInterval(() => {
+      void fetchSnapshot();
+    }, 5000);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : '初始化失败';
+    loadingError.value = errorMessage;
+    toast.error('驾驶舱初始化失败：' + errorMessage);
+  } finally {
+    loading.value = false;
+  }
+}
 
-  loading.value = false;
+async function retryBootstrap(): Promise<void> {
+  cleanupDashboard();
+  await bootstrapDashboard();
 }
 
 function cleanupDashboard(): void {
@@ -381,7 +405,12 @@ onBeforeUnmount(() => {
           </div>
 
           <div v-if="loading" class="stage-mask">正在初始化驾驶舱...</div>
-          <div v-else-if="loadingError" class="stage-mask stage-mask--error">{{ loadingError }}</div>
+          <div v-else-if="loadingError" class="stage-mask stage-mask--error">
+            <div class="error-content">
+              <p>{{ loadingError }}</p>
+              <button class="retry-button" @click="retryBootstrap">重试</button>
+            </div>
+          </div>
         </div>
       </ScaleBox>
     </template>
@@ -420,7 +449,13 @@ onBeforeUnmount(() => {
             </footer>
           </article>
 
-          <p v-if="!alerts.length" class="intel-panel__empty">当前无活跃告警，系统运行平稳。</p>
+          <div v-if="!alerts.length" class="intel-panel__empty">
+            <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="32" cy="32" r="28" stroke="currentColor" stroke-width="2" opacity="0.3"/>
+              <path d="M32 20v16m0 4h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
+            </svg>
+            <p>当前无活跃告警，系统运行平稳</p>
+          </div>
         </div>
 
         <div class="intel-panel__drawer" :class="{ 'intel-panel__drawer--open': detailDrawerOpen }">
@@ -464,7 +499,13 @@ onBeforeUnmount(() => {
               <p>{{ item.description }}</p>
             </div>
           </li>
-          <li v-if="!timeline.length" class="timeline-empty">暂无事件</li>
+          <li v-if="!timeline.length" class="timeline-empty">
+            <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="12" y="12" width="24" height="24" rx="2" stroke="currentColor" stroke-width="2" opacity="0.3"/>
+              <path d="M20 20h8M20 24h8M20 28h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.4"/>
+            </svg>
+            <span>暂无事件</span>
+          </li>
         </ul>
       </div>
     </template>
@@ -634,6 +675,33 @@ onBeforeUnmount(() => {
   color: #ff9b93;
 }
 
+.error-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.error-content p {
+  margin: 0;
+}
+
+.retry-button {
+  border-radius: 8px;
+  border: 1px solid rgba(255, 155, 147, 0.6);
+  background: rgba(60, 21, 25, 0.7);
+  color: #ffc9c4;
+  padding: 10px 24px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.retry-button:hover {
+  background: rgba(80, 31, 35, 0.8);
+  border-color: rgba(255, 155, 147, 0.8);
+}
+
 .intel-panel {
   height: 100%;
   display: grid;
@@ -720,8 +788,22 @@ onBeforeUnmount(() => {
 }
 
 .intel-panel__empty {
-  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 32px 16px;
   color: rgba(185, 214, 236, 0.72);
+}
+
+.intel-panel__empty svg {
+  color: rgba(185, 214, 236, 0.5);
+}
+
+.intel-panel__empty p {
+  margin: 0;
+  font-size: 14px;
 }
 
 .intel-panel__drawer {
@@ -846,8 +928,21 @@ onBeforeUnmount(() => {
 }
 
 .timeline-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   color: rgba(174, 204, 226, 0.75);
   align-self: center;
+}
+
+.timeline-empty svg {
+  color: rgba(174, 204, 226, 0.5);
+}
+
+.timeline-empty span {
+  font-size: 14px;
 }
 
 @media (max-width: 1180px) {

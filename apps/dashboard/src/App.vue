@@ -26,13 +26,15 @@
 </script>
 
 <style>
+@import '@packages/shared/styles/tokens.css';
+
 /* 全局样式：统一工业大屏字体和基础背景。 */
 body {
   margin: 0;
   padding: 0;
   overflow: hidden;
-  background: #07111a;
-  font-family: 'PingFang SC', 'HarmonyOS Sans SC', 'Microsoft YaHei', 'Source Han Sans SC', sans-serif;
+  background: var(--color-dashboard-bg-darker);
+  font-family: var(--font-family-base);
 }
 
 #app {
