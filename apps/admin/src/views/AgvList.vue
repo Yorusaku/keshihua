@@ -9,6 +9,9 @@ import { useRoute } from 'vue-router';
 import type { IAgvData } from '@packages/shared';
 import { ensureSharedProvider } from '@/composables';
 import { useFeedback, SkeletonTable } from '@packages/shared';
+import { useTableExport } from '@/composables/useTableExport';
+import BulkActions from '@/components/table/BulkActions.vue';
+import ExportButton from '@/components/table/ExportButton.vue';
 
 interface AgvQueryForm {
   keyword: string;
@@ -16,13 +19,15 @@ interface AgvQueryForm {
 }
 
 const route = useRoute();
-const { toast, confirmDelete, withLoading } = useFeedback();
+const { toast, confirmDelete, confirmBatchDelete, withLoading } = useFeedback();
+const { exportToCSV } = useTableExport();
 const loading = ref(false);
 const sourceLabel = ref('--');
 const tableData = ref<IAgvData[]>([]);
 const total = ref(0);
 const current = ref(1);
 const pageSize = ref(10);
+const selectedRowKeys = ref<string[]>([]);
 
 const queryForm = reactive<AgvQueryForm>({
   keyword: '',
@@ -41,6 +46,13 @@ const contextHint = computed(() => {
   }
   return parts.length ? parts.join(' · ') : '无上下文筛选';
 });
+
+const rowSelection = computed(() => ({
+  selectedRowKeys: selectedRowKeys.value,
+  onChange: (keys: string[]) => {
+    selectedRowKeys.value = keys;
+  },
+}));
 
 async function fetchList(): Promise<void> {
   loading.value = true;
@@ -106,6 +118,53 @@ function statusColor(status: IAgvData['status']): string {
   return 'default';
 }
 
+function handleSelectAll() {
+  if (selectedRowKeys.value.length === tableData.value.length) {
+    selectedRowKeys.value = [];
+  } else {
+    selectedRowKeys.value = tableData.value.map(item => item.id);
+  }
+}
+
+function handleClearSelection() {
+  selectedRowKeys.value = [];
+}
+
+async function handleBatchDelete() {
+  confirmBatchDelete(selectedRowKeys.value.length, async () => {
+    try {
+      await withLoading(
+        Promise.resolve(), // Mock: 实际应该调用批量删除 API
+        '删除中...'
+      );
+      toast.success(`成功删除 ${selectedRowKeys.value.length} 项`);
+      selectedRowKeys.value = [];
+      await fetchList();
+    } catch (error) {
+      toast.error('批量删除失败：' + (error as Error).message);
+    }
+  });
+}
+
+function handleExport() {
+  exportToCSV(
+    tableData.value,
+    [
+      { title: '车辆 ID', dataIndex: 'id' },
+      { title: 'X 坐标', dataIndex: 'x' },
+      { title: 'Y 坐标', dataIndex: 'y' },
+      { title: '状态', dataIndex: 'status' },
+      {
+        title: '时间戳',
+        dataIndex: 'timestamp',
+        format: (value) => new Date(value).toLocaleString('zh-CN'),
+      },
+    ],
+    'agv_list'
+  );
+  toast.success('导出成功');
+}
+
 onMounted(async () => {
   if (typeof route.query.agvId === 'string') {
     queryForm.keyword = route.query.agvId;
@@ -143,7 +202,27 @@ onMounted(async () => {
       <a-button type="primary" :loading="loading" @click="handleSearch">查询</a-button>
       <a-button :disabled="loading" @click="handleReset">重置</a-button>
       <a-button :disabled="loading" @click="handleAddMockAgv">新增模拟车辆</a-button>
+      <ExportButton
+        :data="tableData"
+        :columns="[
+          { title: '车辆 ID', dataIndex: 'id' },
+          { title: 'X 坐标', dataIndex: 'x' },
+          { title: 'Y 坐标', dataIndex: 'y' },
+          { title: '状态', dataIndex: 'status' },
+        ]"
+        filename="agv_list"
+        @export="handleExport"
+      />
     </div>
+
+    <BulkActions
+      v-if="selectedRowKeys.length > 0"
+      :selected-count="selectedRowKeys.length"
+      :total="tableData.length"
+      @select-all="handleSelectAll"
+      @clear="handleClearSelection"
+      @delete="handleBatchDelete"
+    />
 
     <SkeletonTable v-if="loading && !tableData.length" />
     <a-table
@@ -151,6 +230,7 @@ onMounted(async () => {
       row-key="id"
       :data-source="tableData"
       :loading="loading"
+      :row-selection="rowSelection"
       :pagination="{
         current,
         pageSize,
