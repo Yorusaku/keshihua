@@ -26,13 +26,13 @@
 </script>
 
 <style>
-/* ✅ 全局样式（配合 ScaleBox） */
+/* 全局样式：统一工业大屏字体和基础背景。 */
 body {
   margin: 0;
   padding: 0;
   overflow: hidden;
-  background: #0a0f14;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background: #07111a;
+  font-family: 'PingFang SC', 'HarmonyOS Sans SC', 'Microsoft YaHei', 'Source Han Sans SC', sans-serif;
 }
 
 #app {

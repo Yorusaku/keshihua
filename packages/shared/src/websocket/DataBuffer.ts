@@ -62,7 +62,11 @@ export class DataBuffer {
     // ✅ 批量注入：使用最朴素的 for 循环（比 forEach 更快）
     if (Array.isArray(data)) {
       for (let i = 0; i < data.length; i++) {
-        this.bufferMap.set(data[i].id, data[i]);
+        const current = data[i];
+        if (!current) {
+          continue;
+        }
+        this.bufferMap.set(current.id, current);
       }
     } else {
       // ✅ 单条注入：直接 set

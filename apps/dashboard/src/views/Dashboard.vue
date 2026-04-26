@@ -1,162 +1,865 @@
-/**
- * Dashboard.vue 主视口页面
- * 文件路径：apps/dashboard/src/views/Dashboard.vue
- * 阶段：🟢 绿灯阶段（业务实现）
- *
- * 📌 核心说明：
- * - 组装底层三大基建（Layout + ScaleBox + AgvRenderer）
- * - 实现高频数据模拟器（20Hz WebSocket 逼真模拟）
- * - 统一资源销毁机制（防止内存泄漏）
- * - 防御性编程与 Lingma 意图注释
- */
-
-<template>
-  <!-- ✅ 最外层：Layout 布局组件 -->
-  <Layout>
-    <!-- ✅ 内层：ScaleBox 自适应缩放容器（1920x1080 → 视口） -->
-    <ScaleBox :width="1920" :height="1080">
-      <!-- ✅ ZRender 挂载容器（100% 宽高） -->
-      <div ref="canvasContainer" class="canvas-container"></div>
-
-      <!-- ✅ CapacityPanel（绝对定位悬浮，左上角，z-index: 10） -->
-      <CapacityPanel />
-    </ScaleBox>
-  </Layout>
-</template>
+<!--
+  Dashboard 主页面
+  文件职责：装配工业驾驶舱四区布局，串联 AGV + 传感器 + 产能闭环。
+-->
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue';
+import { computed, markRaw, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue';
+import { storeToRefs } from 'pinia';
 import { AgvRenderer } from '@packages/charts';
-import { DataBuffer } from '@packages/shared';
-import type { IAgvData } from '@packages/shared';
+import {
+  DataBuffer,
+  createDataProvider,
+  type AgvLiveItem,
+  type DataProvider,
+  type DashboardSnapshot,
+  type ProductionLineZone,
+  type SensorAlertItem,
+} from '@packages/shared';
 import { Layout } from '@/components/layout';
 import { ScaleBox } from '@/components/scalebox';
-import { CapacityPanel } from '@/views/components';
-import { useAgvSync } from '@/composables/useAgvSync';
+import { useDashboardUiStore } from '@/stores/dashboardUi';
 
-// 📦 ZRender 容器 DOM 引用
-const canvasContainer = ref<HTMLDivElement | null>(null);
+const uiStore = useDashboardUiStore();
+const { filters, focusedAgvId, detailDrawerOpen } = storeToRefs(uiStore);
 
-// 📦 AgvRenderer 实例（60fps 渲染引擎）
-let renderer: AgvRenderer | null = null;
+const stageContainerRef = ref<HTMLDivElement | null>(null);
+const rendererRef = shallowRef<AgvRenderer | null>(null);
+const providerRef = shallowRef<DataProvider | null>(null);
 
-// 📦 模拟器定时器 ID（清除用）
-let mockTimerId: number | null = null;
+const loading = ref(true);
+const loadingError = ref('');
+const snapshotRef = ref<DashboardSnapshot | null>(null);
 
-// ✅ Hook 化：一行代码完成跨端监听（onMounted 订阅 + onBeforeUnmount 取消订阅）
-useAgvSync();
+// 业务主状态采用 Map + shallowRef，避免对海量 AGV 对象做深层代理。
+const agvMapRef = shallowRef<Map<string, AgvLiveItem>>(new Map());
+let stopAgvStream: (() => void) | null = null;
+let snapshotTimerId: number | null = null;
+let snapshotPending = false;
 
-/**
- * 🚀 启动高频数据模拟器（模拟 WebSocket 20Hz 推送）
- * @description 每 50ms 生成/更新 1000 辆 AGV 的坐标和状态
- * 
- * 📌 20Hz 推送模拟：
- * - setInterval 50ms（1000ms / 50ms = 20Hz）
- * - 模拟真实 WebSocket 高频数据推送场景
- * - 1000 辆 AGV 造成海量数据压力，验证 DataBuffer 性能
- */
-const startMockWebSocket = (): void => {
-  // ✅ setInterval 50ms（模拟 20Hz WebSocket 推送频率）
-  mockTimerId = window.setInterval(() => {
-    // ✅ 生成或更新 1000 辆 AGV 数据（模拟海量数据）
-    const mockData: IAgvData[] = Array.from({ length: 1000 }, (_, i) => ({
-      id: `agv-mock-${String(i).padStart(3, '0')}`,
-      x: Math.random() * 1920, // 0 ~ 1920（大屏宽度）
-      y: Math.random() * 1080, // 0 ~ 1080（大屏高度）
-      status: (Math.random() > 0.95 ? 'error' : Math.random() > 0.5 ? 'moving' : 'idle') as IAgvData['status'],
-      timestamp: Date.now(),
-    }));
+const adminBaseUrl = (import.meta.env.VITE_ADMIN_BASE_URL as string | undefined) || 'http://localhost:5174';
 
-    // ✅ 向 DataBuffer 推送高频数据（O(1) 读写，支持海量数据）
-    DataBuffer.getInstance().pushData(mockData);
-  }, 50); // 50ms = 20Hz（每秒 20 次推送）
-};
+const selectedLineId = computed({
+  get: () => filters.value.lineId || 'all',
+  set: (value: string) => uiStore.updateFilters({ lineId: value }),
+});
 
-/**
- * 🎨 启动渲染引擎（60fps 极限渲染）
- * @description 实例化 AgvRenderer，启动 requestAnimationFrame 循环
- */
-const startRenderEngine = (): void => {
-  // 🛡️ 防御性编程：检查容器存在性
-  if (!canvasContainer.value) {
-    console.error('Dashboard: canvasContainer 不存在');
+const selectedShift = computed({
+  get: () => filters.value.shift || '白班',
+  set: (value: string) => uiStore.updateFilters({ shift: value }),
+});
+
+const selectedTimeRange = computed({
+  get: () => filters.value.timeRange || '1h',
+  set: (value: '15m' | '1h' | '8h') => uiStore.updateFilters({ timeRange: value }),
+});
+
+const lineOptions = computed(() => {
+  const lines = snapshotRef.value?.lines || [];
+  return [
+    { value: 'all', label: '全产线' },
+    ...lines.map((line) => ({ value: line.id, label: line.name })),
+  ];
+});
+
+const statusBar = computed(() => snapshotRef.value?.statusBar);
+const alerts = computed(() => snapshotRef.value?.alerts || []);
+const timeline = computed(() => snapshotRef.value?.timeline || []);
+
+const agvList = computed(() => Array.from(agvMapRef.value.values()));
+
+const focusedAgv = computed(() => {
+  if (!focusedAgvId.value) {
+    return null;
+  }
+  return agvMapRef.value.get(focusedAgvId.value) || null;
+});
+
+const selectedAlert = computed(() => {
+  const currentAlertId = uiStore.selectedAlertId;
+  if (!currentAlertId) {
+    return alerts.value[0] || null;
+  }
+  return alerts.value.find((item) => item.id === currentAlertId) || alerts.value[0] || null;
+});
+
+const selectedAlertImpactedAgv = computed(() => {
+  const alert = selectedAlert.value;
+  if (!alert) {
+    return [];
+  }
+  return alert.impactedAgvIds
+    .map((agvId) => agvMapRef.value.get(agvId))
+    .filter((item): item is AgvLiveItem => Boolean(item));
+});
+
+const stageZones = computed<ProductionLineZone[]>(() => {
+  const lines = snapshotRef.value?.lines || [];
+  const lineId = filters.value.lineId;
+  if (!lineId || lineId === 'all') {
+    return lines.flatMap((line) => line.zones);
+  }
+  return lines.find((line) => line.id === lineId)?.zones || [];
+});
+
+const adminDetailLink = computed(() => {
+  const alert = selectedAlert.value;
+  if (!alert) {
+    return `${adminBaseUrl}/agv`;
+  }
+  const params = new URLSearchParams({
+    lineId: alert.lineId,
+    sensorId: alert.sensorId,
+    alertId: alert.id,
+    shift: selectedShift.value,
+    source: statusBar.value?.sourceLabel || 'mock',
+  });
+  if (selectedAlertImpactedAgv.value[0]) {
+    params.set('agvId', selectedAlertImpactedAgv.value[0].id);
+  }
+  return `${adminBaseUrl}/agv/sensor?${params.toString()}`;
+});
+
+function formatPercent(value: number | undefined): string {
+  if (typeof value !== 'number') {
+    return '--';
+  }
+  return `${(value * 100).toFixed(1)}%`;
+}
+
+function formatTime(timestamp: number | undefined): string {
+  if (!timestamp) {
+    return '--:--:--';
+  }
+  return new Date(timestamp).toLocaleTimeString('zh-CN', { hour12: false });
+}
+
+function alertClass(alert: SensorAlertItem): string {
+  return `alert-card--${alert.severity}`;
+}
+
+function timelineClass(level: 'info' | 'warning' | 'critical'): string {
+  if (level === 'critical') {
+    return 'timeline-item--critical';
+  }
+  if (level === 'warning') {
+    return 'timeline-item--warning';
+  }
+  return 'timeline-item--info';
+}
+
+function syncAgvMap(agvListInput: AgvLiveItem[]): void {
+  const nextMap = new Map<string, AgvLiveItem>();
+  const slimAgv = [];
+
+  for (let i = 0; i < agvListInput.length; i += 1) {
+    const agv = agvListInput[i];
+    if (!agv) {
+      continue;
+    }
+    nextMap.set(agv.id, agv);
+    slimAgv.push({
+      id: agv.id,
+      x: agv.x,
+      y: agv.y,
+      status: agv.status,
+      timestamp: agv.timestamp,
+    });
+  }
+
+  agvMapRef.value = nextMap;
+  DataBuffer.getInstance().pushData(slimAgv);
+}
+
+function initRenderer(): void {
+  if (!stageContainerRef.value) {
+    return;
+  }
+  const renderer = markRaw(new AgvRenderer(stageContainerRef.value));
+  renderer.startAnimationLoop(() => Array.from(agvMapRef.value.values()));
+  rendererRef.value = renderer;
+}
+
+async function fetchSnapshot(): Promise<void> {
+  if (!providerRef.value || snapshotPending) {
     return;
   }
 
-  // ✅ 实例化 AgvRenderer（传入 ZRender 挂载容器）
-  renderer = new AgvRenderer(canvasContainer.value);
+  snapshotPending = true;
+  try {
+    const data = await providerRef.value.getDashboardSnapshot(filters.value);
+    snapshotRef.value = data;
+    syncAgvMap(data.agv);
 
-  // ✅ 启动渲染循环（从 DataBuffer 拉取快照）
-  // 📌 数据源注入：通过 getDataSnapshot 函数注入
-  // - DataBuffer.getInstance().getSnapshot() 拉取最新快照
-  // - AgvRenderer 每帧从 DataBuffer 获取数据更新坐标
-  renderer.startAnimationLoop(() => DataBuffer.getInstance().getSnapshot());
-};
-
-/**
- * 🧹 销毁资源（防止内存泄漏）
- * @description 依次执行：清除模拟器定时器 → 销毁 AgvRenderer → 清空 DataBuffer
- * @note 跨端同步订阅已在 useAgvSync Hook 中自动清理
- *
- * 📌 防内存泄漏机制：
- * - 严格按照顺序销毁（避免依赖问题）
- * - 定时器清除（防止重复执行）
- * - ZRender 销毁（释放 Canvas 资源）
- * - DataBuffer 清空（释放内存数据）
- */
-const destroyResources = (): void => {
-  // ✅ 清除模拟器定时器（防止重复执行）
-  if (mockTimerId !== null) {
-    window.clearInterval(mockTimerId);
-    mockTimerId = null;
+    if (!uiStore.selectedAlertId && data.alerts[0]) {
+      uiStore.openAlertDetail(data.alerts[0].id);
+    }
+  } catch (error) {
+    loadingError.value = error instanceof Error ? error.message : '快照拉取失败';
+  } finally {
+    snapshotPending = false;
   }
+}
 
-  // ✅ 销毁 AgvRenderer（防止内存泄漏）
-  if (renderer) {
-    renderer.dispose();
-    renderer = null;
+async function acknowledgeAlert(alert: SensorAlertItem): Promise<void> {
+  if (!providerRef.value) {
+    return;
   }
+  await providerRef.value.acknowledgeAlert({
+    alertId: alert.id,
+    operator: 'dashboard',
+  });
+  await fetchSnapshot();
+}
 
-  // ✅ 清空 DataBuffer（释放内存数据）
+function openAlertDetail(alert: SensorAlertItem): void {
+  uiStore.openAlertDetail(alert.id);
+  uiStore.setDeepLinkContext({
+    lineId: alert.lineId,
+    sensorId: alert.sensorId,
+    alertId: alert.id,
+    shift: selectedShift.value,
+    source: statusBar.value?.sourceLabel || 'mock',
+  });
+
+  if (alert.impactedAgvIds[0]) {
+    uiStore.focusAgv(alert.impactedAgvIds[0]);
+  }
+}
+
+async function bootstrapDashboard(): Promise<void> {
+  loading.value = true;
+  loadingError.value = '';
+
+  const provider = markRaw(await createDataProvider({ mode: 'auto' }));
+  providerRef.value = provider;
+
+  await fetchSnapshot();
+  initRenderer();
+
+  stopAgvStream = provider.startAgvStream((nextAgv) => {
+    syncAgvMap(nextAgv);
+  }, 120);
+
+  snapshotTimerId = window.setInterval(() => {
+    void fetchSnapshot();
+  }, 5000);
+
+  loading.value = false;
+}
+
+function cleanupDashboard(): void {
+  if (snapshotTimerId !== null) {
+    window.clearInterval(snapshotTimerId);
+    snapshotTimerId = null;
+  }
+  if (stopAgvStream) {
+    stopAgvStream();
+    stopAgvStream = null;
+  }
+  if (rendererRef.value) {
+    rendererRef.value.dispose();
+    rendererRef.value = null;
+  }
   DataBuffer.getInstance().clear();
-};
+}
 
-/**
- * 组件挂载（onMounted）
- * @description 依次启动：模拟器 → 渲染引擎
- * @note 跨端同步订阅已在 useAgvSync Hook 中自动处理
- */
+watch(
+  () => ({ ...filters.value }),
+  () => {
+    void fetchSnapshot();
+  },
+  { deep: true }
+);
+
 onMounted(() => {
-  // ✅ 启动高频数据模拟器（20Hz WebSocket 模拟）
-  startMockWebSocket();
-
-  // ✅ 启动渲染引擎（60fps 极限渲染）
-  startRenderEngine();
+  void bootstrapDashboard();
 });
 
-/**
- * 组件卸载（onBeforeUnmount）
- * @description 依次销毁：模拟器 → AgvRenderer → DataBuffer
- * 
- * 🛡️ 防内存泄漏机制：
- * - onBeforeUnmount 是组件销毁的最后机会
- * - 严格按照顺序销毁（避免依赖问题）
- * - 所有资源必须清理干净
- */
 onBeforeUnmount(() => {
-  // ✅ 销毁所有资源（防止内存泄漏）
-  destroyResources();
+  cleanupDashboard();
 });
 </script>
 
-<style scoped>
-/* 📌 Dashboard 样式说明：
- * - canvas-container：ZRender 挂载容器，100% 宽高铺满 ScaleBox
- */
+<template>
+  <Layout>
+    <template #top>
+      <div class="top-status">
+        <div class="top-status__headline">
+          <h1>智造远望 · 工业监控驾驶舱</h1>
+          <p>AGV · 传感器 · 产能一体闭环</p>
+        </div>
 
-.canvas-container {
-  width: 100%;
+        <div class="top-status__filters">
+          <label>
+            产线
+            <select v-model="selectedLineId">
+              <option v-for="line in lineOptions" :key="line.value" :value="line.value">
+                {{ line.label }}
+              </option>
+            </select>
+          </label>
+
+          <label>
+            班次
+            <select v-model="selectedShift">
+              <option value="白班">白班</option>
+              <option value="中班">中班</option>
+              <option value="夜班">夜班</option>
+            </select>
+          </label>
+
+          <label>
+            时间范围
+            <select v-model="selectedTimeRange">
+              <option value="15m">最近 15 分钟</option>
+              <option value="1h">最近 1 小时</option>
+              <option value="8h">最近 8 小时</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="top-status__metrics">
+          <div class="metric-chip">
+            <span>在线率</span>
+            <strong>{{ formatPercent(statusBar?.onlineRate) }}</strong>
+          </div>
+          <div class="metric-chip metric-chip--warn">
+            <span>告警数</span>
+            <strong>{{ statusBar?.alertCount ?? '--' }}</strong>
+          </div>
+          <div class="metric-chip">
+            <span>达成率</span>
+            <strong>{{ formatPercent(statusBar?.completionRate) }}</strong>
+          </div>
+          <div class="metric-chip">
+            <span>数据源</span>
+            <strong>{{ statusBar?.sourceLabel ?? '--' }}</strong>
+          </div>
+          <div class="metric-chip">
+            <span>最后同步</span>
+            <strong>{{ formatTime(statusBar?.lastSyncAt) }}</strong>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <template #stage>
+      <ScaleBox :width="1920" :height="1080">
+        <div class="stage-root">
+          <div ref="stageContainerRef" class="stage-canvas"></div>
+
+          <div class="stage-zones">
+            <div
+              v-for="zone in stageZones"
+              :key="zone.id"
+              class="stage-zone"
+              :class="{ 'stage-zone--highlight': selectedLineId !== 'all' }"
+              :style="{
+                left: `${zone.x}px`,
+                top: `${zone.y}px`,
+                width: `${zone.width}px`,
+                height: `${zone.height}px`,
+              }"
+            >
+              <span>{{ zone.name }}</span>
+            </div>
+          </div>
+
+          <div class="stage-overview">
+            <p>在线 AGV：{{ agvList.length }}</p>
+            <p>活跃告警：{{ alerts.length }}</p>
+            <p>当前班次：{{ statusBar?.shift ?? selectedShift }}</p>
+          </div>
+
+          <div v-if="focusedAgv" class="stage-focus-card">
+            <h3>聚焦车辆 {{ focusedAgv.id }}</h3>
+            <p>所属产线：{{ focusedAgv.lineId }}</p>
+            <p>运行状态：{{ focusedAgv.status }}</p>
+            <p>当前任务：{{ focusedAgv.task }}</p>
+            <p>电量：{{ focusedAgv.battery }}%</p>
+          </div>
+
+          <div v-if="loading" class="stage-mask">正在初始化驾驶舱...</div>
+          <div v-else-if="loadingError" class="stage-mask stage-mask--error">{{ loadingError }}</div>
+        </div>
+      </ScaleBox>
+    </template>
+
+    <template #intel>
+      <div class="intel-panel">
+        <div class="intel-panel__header">
+          <h2>异常情报栏</h2>
+          <small>{{ statusBar?.sourceLabel ?? '未知数据源' }}</small>
+        </div>
+
+        <div class="intel-panel__alerts">
+          <article
+            v-for="alert in alerts"
+            :key="alert.id"
+            class="alert-card"
+            :class="alertClass(alert)"
+          >
+            <header>
+              <strong>{{ alert.title }}</strong>
+              <span>{{ alert.sensorId }}</span>
+            </header>
+            <p>{{ alert.message }}</p>
+            <footer>
+              <span>当前值 {{ alert.value }} / 阈值 {{ alert.threshold }}</span>
+              <div class="alert-card__actions">
+                <button @click="openAlertDetail(alert)">查看详情</button>
+                <button
+                  v-if="alert.status === 'active'"
+                  class="alert-card__btn-primary"
+                  @click="acknowledgeAlert(alert)"
+                >
+                  确认告警
+                </button>
+              </div>
+            </footer>
+          </article>
+
+          <p v-if="!alerts.length" class="intel-panel__empty">当前无活跃告警，系统运行平稳。</p>
+        </div>
+
+        <div class="intel-panel__drawer" :class="{ 'intel-panel__drawer--open': detailDrawerOpen }">
+          <div class="drawer-header">
+            <h3>实体详情</h3>
+            <button @click="uiStore.closeAlertDetail()">收起</button>
+          </div>
+          <template v-if="selectedAlert">
+            <p>告警编号：{{ selectedAlert.id }}</p>
+            <p>建议动作：{{ selectedAlert.suggestion }}</p>
+            <p>影响范围：{{ selectedAlert.lineId }} · {{ selectedAlert.impactedAgvIds.length }} 台 AGV</p>
+            <ul>
+              <li v-for="agv in selectedAlertImpactedAgv" :key="agv.id">
+                {{ agv.id }} · {{ agv.task }} · {{ agv.status }}
+              </li>
+            </ul>
+            <a :href="adminDetailLink" target="_blank" rel="noopener noreferrer">跳转后台继续处置</a>
+          </template>
+          <p v-else>尚未选择告警。</p>
+        </div>
+      </div>
+    </template>
+
+    <template #timeline>
+      <div class="timeline-panel">
+        <header>
+          <h2>事件轨</h2>
+          <span>展示异常发现、影响评估与确认闭环</span>
+        </header>
+
+        <ul class="timeline-list">
+          <li
+            v-for="item in timeline"
+            :key="item.id"
+            class="timeline-item"
+            :class="timelineClass(item.level)"
+          >
+            <div class="timeline-item__time">{{ formatTime(item.timestamp) }}</div>
+            <div class="timeline-item__content">
+              <strong>{{ item.title }}</strong>
+              <p>{{ item.description }}</p>
+            </div>
+          </li>
+          <li v-if="!timeline.length" class="timeline-empty">暂无事件</li>
+        </ul>
+      </div>
+    </template>
+  </Layout>
+</template>
+
+<style scoped>
+.top-status {
   height: 100%;
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr) minmax(0, 560px);
+  align-items: center;
+  gap: 18px;
+  padding: 0 20px;
+  color: #e9f4ff;
 }
 
+.top-status__headline h1 {
+  font-size: 23px;
+  line-height: 1.2;
+  margin: 0;
+  letter-spacing: 1px;
+}
+
+.top-status__headline p {
+  margin: 6px 0 0;
+  color: rgba(189, 216, 239, 0.86);
+}
+
+.top-status__filters {
+  display: flex;
+  gap: 10px;
+}
+
+.top-status__filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: rgba(178, 203, 222, 0.92);
+}
+
+.top-status__filters select {
+  min-width: 120px;
+  border-radius: 8px;
+  border: 1px solid rgba(125, 170, 201, 0.65);
+  background: rgba(7, 27, 44, 0.78);
+  color: #f2f8ff;
+  padding: 6px 10px;
+}
+
+.top-status__metrics {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.metric-chip {
+  border: 1px solid rgba(112, 159, 190, 0.6);
+  border-radius: 9px;
+  background: rgba(7, 30, 47, 0.84);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.metric-chip span {
+  color: rgba(180, 209, 231, 0.78);
+  font-size: 12px;
+}
+
+.metric-chip strong {
+  font-size: 16px;
+}
+
+.metric-chip--warn strong {
+  color: #ffbf5f;
+}
+
+.stage-root {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.stage-canvas {
+  position: absolute;
+  inset: 0;
+}
+
+.stage-zones {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.stage-zone {
+  position: absolute;
+  border: 1px dashed rgba(120, 167, 199, 0.68);
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(22, 46, 68, 0.45), rgba(11, 30, 48, 0.22));
+  box-shadow: inset 0 0 20px rgba(38, 124, 162, 0.18);
+}
+
+.stage-zone span {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  color: rgba(196, 224, 244, 0.88);
+  font-size: 14px;
+}
+
+.stage-zone--highlight {
+  border-color: rgba(251, 180, 96, 0.74);
+}
+
+.stage-overview {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  border: 1px solid rgba(117, 170, 200, 0.58);
+  border-radius: 10px;
+  background: rgba(4, 20, 32, 0.78);
+  padding: 12px;
+  color: #d8efff;
+  min-width: 220px;
+}
+
+.stage-overview p {
+  margin: 4px 0;
+}
+
+.stage-focus-card {
+  position: absolute;
+  right: 16px;
+  top: 16px;
+  width: 260px;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(252, 193, 92, 0.62);
+  background: rgba(39, 28, 13, 0.62);
+  color: #ffe2b5;
+}
+
+.stage-focus-card h3 {
+  margin: 0 0 8px;
+}
+
+.stage-focus-card p {
+  margin: 4px 0;
+}
+
+.stage-mask {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(7, 20, 33, 0.72);
+  color: #b7def8;
+  font-size: 18px;
+  z-index: 20;
+}
+
+.stage-mask--error {
+  color: #ff9b93;
+}
+
+.intel-panel {
+  height: 100%;
+  display: grid;
+  grid-template-rows: 68px minmax(0, 1fr) auto;
+}
+
+.intel-panel__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 16px;
+  border-bottom: 1px solid rgba(109, 151, 178, 0.36);
+  color: #dbf2ff;
+}
+
+.intel-panel__header h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.intel-panel__alerts {
+  padding: 10px 12px;
+  overflow: auto;
+}
+
+.alert-card {
+  border: 1px solid rgba(116, 159, 186, 0.44);
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 10px;
+  background: rgba(9, 30, 49, 0.7);
+  color: #dff3ff;
+}
+
+.alert-card header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.alert-card p {
+  margin: 8px 0 10px;
+  font-size: 13px;
+  color: rgba(215, 232, 245, 0.9);
+}
+
+.alert-card footer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.alert-card__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.alert-card__actions button {
+  border-radius: 6px;
+  border: 1px solid rgba(128, 170, 196, 0.7);
+  background: rgba(7, 37, 61, 0.82);
+  color: #dcf5ff;
+  padding: 6px 8px;
+  cursor: pointer;
+}
+
+.alert-card__btn-primary {
+  border-color: rgba(255, 183, 92, 0.85) !important;
+  color: #ffdba8 !important;
+}
+
+.alert-card--critical {
+  border-color: rgba(255, 120, 120, 0.75);
+  background: linear-gradient(135deg, rgba(60, 21, 25, 0.7), rgba(44, 18, 24, 0.5));
+}
+
+.alert-card--high {
+  border-color: rgba(255, 188, 97, 0.82);
+}
+
+.alert-card--medium {
+  border-color: rgba(121, 190, 244, 0.8);
+}
+
+.intel-panel__empty {
+  margin: 0;
+  color: rgba(185, 214, 236, 0.72);
+}
+
+.intel-panel__drawer {
+  border-top: 1px solid rgba(115, 158, 184, 0.35);
+  padding: 10px 12px;
+  background: rgba(5, 19, 31, 0.84);
+  color: #d8efff;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 260ms ease;
+}
+
+.intel-panel__drawer--open {
+  max-height: 240px;
+}
+
+.drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.drawer-header h3 {
+  margin: 0;
+}
+
+.drawer-header button {
+  border: 1px solid rgba(120, 168, 199, 0.66);
+  border-radius: 6px;
+  background: rgba(11, 43, 67, 0.8);
+  color: #d7edff;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.intel-panel__drawer p {
+  margin: 7px 0;
+  font-size: 13px;
+}
+
+.intel-panel__drawer ul {
+  margin: 8px 0;
+  padding-left: 18px;
+}
+
+.intel-panel__drawer a {
+  color: #8fd3ff;
+}
+
+.timeline-panel {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 14px;
+  color: #d9f1ff;
+}
+
+.timeline-panel header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.timeline-panel h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.timeline-panel span {
+  color: rgba(178, 212, 235, 0.7);
+  font-size: 12px;
+}
+
+.timeline-list {
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-auto-rows: minmax(42px, auto);
+  gap: 8px;
+  overflow: auto;
+}
+
+.timeline-item {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 12px;
+  border: 1px solid rgba(118, 158, 186, 0.4);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: rgba(8, 31, 50, 0.7);
+}
+
+.timeline-item__time {
+  font-size: 12px;
+  color: rgba(189, 219, 240, 0.85);
+}
+
+.timeline-item__content strong {
+  font-size: 14px;
+}
+
+.timeline-item__content p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: rgba(194, 220, 238, 0.86);
+}
+
+.timeline-item--critical {
+  border-color: rgba(255, 128, 128, 0.8);
+}
+
+.timeline-item--warning {
+  border-color: rgba(255, 188, 96, 0.76);
+}
+
+.timeline-item--info {
+  border-color: rgba(118, 184, 236, 0.72);
+}
+
+.timeline-empty {
+  color: rgba(174, 204, 226, 0.75);
+  align-self: center;
+}
+
+@media (max-width: 1180px) {
+  .top-status {
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(3, auto);
+    gap: 8px;
+    padding: 10px 14px;
+  }
+
+  .top-status__metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
 </style>

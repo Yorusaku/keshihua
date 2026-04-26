@@ -23,6 +23,9 @@ importers:
       '@ant-design/icons-vue':
         specifier: ^7.0.1
         version: 7.0.1(vue@3.5.29(typescript@5.9.3))
+      '@packages/charts':
+        specifier: workspace:*
+        version: link:../../packages/charts
       '@packages/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -175,9 +178,15 @@ importers:
 
   packages/shared:
     dependencies:
+      '@packages/monitor':
+        specifier: workspace:*
+        version: link:../monitor
       '@tanstack/vue-query':
         specifier: ^5.92.9
         version: 5.92.9(vue@3.5.29(typescript@5.9.3))
+      vue:
+        specifier: ^3.5.13
+        version: 3.5.29(typescript@5.9.3)
     devDependencies:
       '@vue/test-utils':
         specifier: ^2.4.6

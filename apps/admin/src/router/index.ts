@@ -1,65 +1,15 @@
 /**
- * Router 实例配置
- * 阶段：🟣 纠偏阶段（动态导入修复 HMR 死锁）
- */
-
-import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router';
-import AdminLayout from '@/layout/AdminLayout.vue';
-import { AimOutlined, BarChartOutlined, LineChartOutlined } from '@ant-design/icons-vue';
-
-/**
- * 静态路由配置
- */
-const routes: RouteRecordRaw[] = [
-  {
-    path: '/',
-    redirect: '/agv',
-  },
-  {
-    path: '/agv',
-    component: AdminLayout,
-    children: [
-      {
-        path: '',
-        name: 'AgvList',
-        // ✅ 核心修复：使用动态导入，彻底杜绝 undefined 导致白板！
-        component: () => import('@/views/AgvList.vue'),
-        meta: {
-          title: 'AGV 车辆管理',
-          icon: AimOutlined,
-        },
-      },
-      {
-        path: 'report',
-        name: 'CapacityReport',
-        component: () => import('@/views/CapacityReport.vue'),
-        meta: {
-          title: '产能透视报表',
-          icon: BarChartOutlined,
-        },
-      },
-      {
-        path: 'sensor',
-        name: 'SensorTrend',
-        component: () => import('@/views/SensorTrend.vue'),
-        meta: {
-          title: '传感器时序趋势',
-          icon: LineChartOutlined,
-        },
-      },
-    ],
-  },
-  {
-    path: '/:pathMatch(.*)*',
-    redirect: '/agv',
-  },
-];
-
-/**
  * Router 实例
- * @description 配置路由及其布局
+ * 文件职责：装配 Admin 路由和守卫。
  */
+
+import { createRouter, createWebHistory } from 'vue-router';
+import { adminRoutes } from './routes';
+import { setupRouterGuards } from './guards';
+
 export const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
-  routes,
+  routes: adminRoutes,
 });
+
+setupRouterGuards(router);

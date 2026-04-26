@@ -3,3 +3,4 @@
 
 export { default as AgvList } from './AgvList.vue';
 export { default as SensorTrend } from './SensorTrend.vue';
+export { default as CapacityReport } from './CapacityReport.vue';

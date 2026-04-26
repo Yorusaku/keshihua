@@ -7,6 +7,11 @@
  * - 闭包扁平化：将 renderLoop 提升为类的私有箭头函数方法
  * - 配置剥离：stroke/strokeWidth 从 createNode 提取到 nodeConfig
  * - TODO 注释：僵尸节点回收预埋（Milestone 2）
+ *
+ * 📌 监控扩展（任务三）：
+ * - WebGL 上下文丢失监听（webglcontextlost）
+ * - Canvas 上下文丢失监听（canvascontextlost）
+ * - 显存溢出错误上报（monitor.reportError）
  */
 
 import type { GetDataSnapshot, ZRenderDisplayable } from './types';
@@ -51,6 +56,60 @@ export class AgvRenderer {
     },
   };
 
+  // 📦 WebGL Context Lost 监听器（任务三：显存崩溃监控）
+  private contextLostHandler: ((event: Event) => void) | null = null;
+
+  /**
+   * 绑定上下文丢失监听器（任务三：WebSocket 显存崩溃监控）
+   * @description 监听 canvas 的 webglcontextlost 和 canvascontextlost 事件
+   */
+  private bindContextLostHandler(): void {
+    if (!this.renderer) {
+      return;
+    }
+
+    // ✅ 获取 ZRender 底层的 Canvas 元素
+    const canvas = this.renderer.dom;
+
+    if (canvas && canvas instanceof HTMLCanvasElement) {
+      // ✅ 绑定 webglcontextlost 事件（WebGL 上下文丢失）
+      this.contextLostHandler = (event: Event) => {
+        // ✅ 阻止默认行为（防止彻底白屏）
+        event.preventDefault();
+
+        // ✅ 上报大屏显存崩溃错误
+        console.error('[AgvRenderer] WebGL context lost detected!');
+
+        // 注意：由于 Monitor SDK 在 @packages/monitor 中，而 @packages/charts 依赖 @packages/shared
+        // 这里无法直接依赖 @packages/monitor（避免循环依赖）
+        // 建议通过全局事件或回调方式上报错误（后续优化点）
+        // 这里先打印日志，实际项目中可以通过全局错误上报函数
+        this.reportCanvasError('WebGL context lost', {
+          canvasId: canvas.id || 'unknown',
+          timestamp: new Date().toISOString(),
+        });
+      };
+
+      canvas.addEventListener('webglcontextlost', this.contextLostHandler);
+
+      // ✅ 绑定 canvascontextlost 事件（Canvas 2D 上下文丢失）
+      canvas.addEventListener('canvascontextlost', this.contextLostHandler);
+    }
+  }
+
+  /**
+   * 上报 Canvas 错误（内部方法）
+   * @description 由于 @packages/charts 不能依赖 @packages/monitor（循环依赖），这里先预留
+   * @param message 错误消息
+   * @param metadata 元数据
+   */
+  private reportCanvasError(message: string, metadata: Record<string, unknown>): void {
+    // 📌 TODO: [Milestone 3] 通过全局错误上报函数或事件总线上报
+    // 示例：window.dispatchEvent(new CustomEvent('canvasError', { detail: { message, metadata } }));
+    
+    console.error('[AgvRenderer Error]', message, metadata);
+  }
+
   /**
    * 构造函数
    * @param container HTMLDivElement 容器（用户传入）
@@ -65,6 +124,9 @@ export class AgvRenderer {
     if (options) {
       this.nodeConfig = { ...this.nodeConfig, ...options };
     }
+
+    // ✅ 任务三：绑定上下文丢失监听器
+    this.bindContextLostHandler();
   }
 
   /**
@@ -99,6 +161,9 @@ export class AgvRenderer {
     const len = snapshot.length;
     for (let i = 0; i < len; i++) {
       const data = snapshot[i];
+      if (!data) {
+        continue;
+      }
 
       // ✅ 从节点池查找（O(1) 查找）
       let shape = this.animations.get(data.id);
@@ -173,11 +238,22 @@ export class AgvRenderer {
    * - 判断 renderer 是否存在，防止重复销毁引发报错
    - 清空 animations Map，释放内存
    * - 先 cancelAnimationFrame，再 dispose renderer
+   * - 移除 WebGL context lost 监听器（防止内存泄漏）
    */
   public dispose(): void {
     // 🛡️ 防御性编程：防止重复销毁
     if (!this.renderer || this.animationFrameId === 0) {
       return;
+    }
+
+    // ✅ 移除 WebGL context lost 监听器（任务三：避免内存泄漏）
+    if (this.contextLostHandler) {
+      const canvas = this.renderer.dom;
+      if (canvas && canvas instanceof HTMLCanvasElement) {
+        canvas.removeEventListener('webglcontextlost', this.contextLostHandler);
+        canvas.removeEventListener('canvascontextlost', this.contextLostHandler);
+      }
+      this.contextLostHandler = null;
     }
 
     // ✅ 注销 requestAnimationFrame

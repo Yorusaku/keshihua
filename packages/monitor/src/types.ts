@@ -5,7 +5,9 @@
  */
 
 /**
- * 📌 监控 SDK 配置项
+ * 📌 监控 SDK 配置项（已弃用，保留兼容性）
+ * @description 旧版配置，建议使用 MonitorConfig
+ * @deprecated 请使用 MonitorConfig 替代
  */
 export interface MonitorOptions {
   /**
@@ -37,6 +39,32 @@ export interface MonitorOptions {
    * @default 100
    */
   maxQueueSize?: number;
+}
+
+/**
+ * 📌 手动上报数据类型
+ * @description 用于 reportError 手动上报的自定义数据
+ */
+export interface CustomReportData {
+  /**
+   * 📌自定义错误分类（如：websocket、canvas、network 等）
+   */
+  category: string;
+
+  /**
+   * 📌自定义错误详情（可选，用于补充说明）
+   */
+  details?: string;
+
+  /**
+   * 📌自定义时间戳（可选，默认使用当前时间）
+   */
+  timestamp?: string;
+
+  /**
+   * 📌自定义元数据（可选，用于扩展信息）
+   */
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -117,6 +145,12 @@ export interface ErrorData {
    * 📌 Promise 异常的错误对象（仅 Promise 异常）
    */
   error?: string;
+
+  /**
+   * 📌 自定义错误信息（可选，用于补充手动上报的上下文）
+   * @description 用于手动上报（reportError）时的自定义数据
+   */
+  custom?: CustomReportData;
 }
 
 /**

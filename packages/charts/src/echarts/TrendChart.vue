@@ -138,8 +138,6 @@ const buildChartOptions = (props: TrendChartProps): EChartsOption => {
         zoomOnMouseWheel: true,
         moveOnMouseMove: true,
         moveOnMouseWheel: true,
-        min: 0,
-        max: 100,
       },
       {
         type: 'slider',
@@ -149,8 +147,6 @@ const buildChartOptions = (props: TrendChartProps): EChartsOption => {
         width: '80%',
         height: 12,
         bottom: '5%',
-        min: 0,
-        max: 100,
         handleSize: 8,
         showDataShadow: false,
       },
@@ -222,7 +218,7 @@ const buildChartOptions = (props: TrendChartProps): EChartsOption => {
         emphasis: {
           focus: 'series',
         },
-      },
+      } as any,
     ],
   };
 };

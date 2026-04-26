@@ -20,7 +20,7 @@ const queryCache = new QueryCache({
   },
   
   // 📌 全局 onSuccess：预留日志上报（Milestone 3）
-  onSuccess: (data, query) => {
+  onSuccess: () => {
     // TODO: [Milestone 3] 上报数据变更事件
   },
 });

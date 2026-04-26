@@ -1,4 +1,4 @@
-[6n[m]0;C:\WINDOWS\system32\cmd.exe[?25h[25l
-> @packages/charts@1.0.0 build E:\frontend\allstack\smart-manufactur
-ing-mono\packages\charts[K
-> tsc --build[K[6;1H[?25h
+
+> @packages/charts@1.0.0 build E:\frontend\allstack\smart-manufacturing-mono\packages\charts
+> tsc --build
+

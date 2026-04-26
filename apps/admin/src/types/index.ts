@@ -3,8 +3,6 @@
  * 阶段：🟣 重构阶段（配置化驱动）
  */
 
-import type { RouteMeta } from 'vue-router';
-
 /**
  * 📌 扩展 vue-router 的 RouteMeta 接口
  * @description 显式声明自定义属性，杜绝隐式 any

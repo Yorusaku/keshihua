@@ -9,7 +9,7 @@
  */
 
 import type { Ref } from 'vue';
-import type { UseQueryResult } from '@tanstack/vue-query';
+import type { UseQueryReturnType } from '@tanstack/vue-query';
 import { useQuery } from '@tanstack/vue-query';
 import type { IAgvListParams, IAgvListResponse } from '../api/agv';
 import { fetchAgvList } from '../api/agv';
@@ -20,16 +20,15 @@ import { fetchAgvList } from '../api/agv';
  * @param params 响应式参数对象 Ref<IAgvListParams>
  * @returns UseQueryResult<IAgvListResponse, Error>
  */
-export function useAgvListQuery(params: Ref<IAgvListParams>): UseQueryResult<IAgvListResponse, Error> {
+export function useAgvListQuery(
+  params: Ref<IAgvListParams>
+): UseQueryReturnType<IAgvListResponse, Error> {
   return useQuery({
     // ✅ 动态依赖参数的 queryKey
     queryKey: ['agvList', params],
     
     // ✅ 使用 fetchAgvList 函数作为查询函数
     queryFn: () => fetchAgvList(params.value),
-    
-    // ✅ 保留上一页数据，防止分页时表格闪烁
-    keepPreviousData: true,
     
     // ✅ 禁用窗口聚焦自动刷新（避免频繁请求）
     refetchOnWindowFocus: false,

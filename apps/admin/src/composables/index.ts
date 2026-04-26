@@ -4,3 +4,4 @@
  */
 
 export * from './useBreadcrumb';
+export * from './useSharedProvider';

@@ -9,7 +9,7 @@
  */
 
 import type { Ref } from 'vue';
-import type { UseQueryResult } from '@tanstack/vue-query';
+import type { UseQueryReturnType } from '@tanstack/vue-query';
 import { useQuery } from '@tanstack/vue-query';
 import type { ISensorTimeSeriesParams, ISensorTimeSeriesResponse } from '../api/sensor';
 import { fetchSensorTimeSeries } from '../api/sensor';
@@ -22,7 +22,7 @@ import { fetchSensorTimeSeries } from '../api/sensor';
  */
 export function useSensorTrendQuery(
   params: Ref<ISensorTimeSeriesParams>
-): UseQueryResult<ISensorTimeSeriesResponse, Error> {
+): UseQueryReturnType<ISensorTimeSeriesResponse, Error> {
   return useQuery({
     // ✅ 动态依赖参数的 queryKey
     queryKey: ['sensorTrend', params],
@@ -34,9 +34,6 @@ export function useSensorTrendQuery(
     // 📌 意图：历史传感器数据在一定时间内是不变的，极致利用缓存
     //          避免频繁请求相同的历史数据
     staleTime: 5 * 60 * 1000, // 5 分钟
-
-    // ✅ 保留上一页数据，防止过滤时表格闪烁
-    keepPreviousData: true,
 
     // ✅ 禁用窗口聚焦自动刷新（避免频繁请求）
     refetchOnWindowFocus: false,

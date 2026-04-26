@@ -1,89 +1,86 @@
-<!-- Sidebar.vue 侧边栏菜单 -->
-<!-- 阶段：🟣 纠偏阶段（修复 VNode 崩溃问题） -->
+<!--
+  Admin 侧边栏
+  文件职责：提供三类核心页面入口，保持导航简洁且稳定。
+-->
 
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import type { AppRouteRecordRaw } from '@/types';
 
-interface SidebarProps {
+const props = defineProps<{
   collapsed: boolean;
-}
-
-const props = withDefaults(defineProps<SidebarProps>(), {
-  collapsed: false,
-});
+}>();
 
 const route = useRoute();
 const router = useRouter();
 
-const menuList = computed(() => {
-  const routes = router.options.routes as AppRouteRecordRaw[];
+const menuItems = [
+  { key: 'agv', title: 'AGV 管理', path: '/agv', icon: '🚚' },
+  { key: 'sensor', title: '传感器策略', path: '/agv/sensor', icon: '📡' },
+  { key: 'report', title: '产能报表', path: '/agv/report', icon: '📊' },
+];
 
-  // 1. 找到包含子路由的主 Layout 路由
-  const layoutRoute = routes.find((r) => r.children && r.children.length > 0);
-
-  if (!layoutRoute || !layoutRoute.children) return [];
-
-  // 2. 遍历子路由生成菜单
-  return layoutRoute.children
-    .filter((child) => !child.meta?.hidden)
-    .map((child) => {
-      // 处理相对路径和绝对路径的拼接
-      const fullPath = child.path === '' ? layoutRoute.path : `${layoutRoute.path}/${child.path}`;
-      return {
-        path: fullPath,
-        title: child.meta?.title || '未知菜单',
-        icon: child.meta?.icon,
-      };
-    })
-    .sort((a, b) => ((a.meta?.weight || 0) - (b.meta?.weight || 0)));
+const selectedKeys = computed(() => {
+  const navKey = route.meta.navKey;
+  if (typeof navKey === 'string') {
+    return [navKey];
+  }
+  if (route.path.includes('/sensor')) return ['sensor'];
+  if (route.path.includes('/report')) return ['report'];
+  return ['agv'];
 });
+
+function handleSelect(path: string): void {
+  void router.push(path);
+}
 </script>
 
 <template>
   <a-layout-sider
     :collapsed="props.collapsed"
     :trigger="null"
+    width="248"
     collapsible
-    width="240"
-    class="sidebar"
+    class="admin-sidebar"
   >
-    <div class="sidebar__logo">
-      <span v-if="!collapsed" style="font-size: 18px; font-weight: bold; margin-left: 8px; color: white;">
-        智造远望 Admin
-      </span>
+    <div class="admin-sidebar__brand">
+      <span v-if="!props.collapsed">智造远望 Admin</span>
+      <span v-else>OA</span>
     </div>
 
-    <a-menu
-      :selected-keys="[route.path]"
-      mode="inline"
-      theme="dark"
-      style="border-right: 0"
-    >
-      <a-menu-item v-for="item in menuList" :key="item.path">
-        <router-link :to="item.path">
-          <component :is="item.icon" v-if="item.icon" />
-          <span style="margin-left: 10px;">{{ item.title }}</span>
-        </router-link>
+    <a-menu :selected-keys="selectedKeys" theme="dark" mode="inline">
+      <a-menu-item
+        v-for="item in menuItems"
+        :key="item.key"
+        @click="handleSelect(item.path)"
+      >
+        <span class="admin-sidebar__icon">{{ item.icon }}</span>
+        <span>{{ item.title }}</span>
       </a-menu-item>
     </a-menu>
   </a-layout-sider>
 </template>
 
 <style scoped>
-.sidebar {
+.admin-sidebar {
   height: 100vh;
-  box-shadow: 2px 0 8px 0 rgba(29, 35, 41, 0.05);
-  z-index: 10;
+  background:
+    radial-gradient(circle at 30% 0%, rgba(80, 143, 197, 0.22), transparent 42%),
+    linear-gradient(180deg, #10283a 0%, #0b1f2e 100%);
+  border-right: 1px solid rgba(151, 188, 216, 0.24);
 }
-.sidebar__logo {
-  height: 64px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  white-space: nowrap;
-  background-color: rgba(255, 255, 255, 0.04);
+
+.admin-sidebar__brand {
+  height: 72px;
+  display: grid;
+  place-items: center;
+  color: #e7f6ff;
+  font-size: 16px;
+  letter-spacing: 1px;
+  border-bottom: 1px solid rgba(144, 193, 224, 0.25);
+}
+
+.admin-sidebar__icon {
+  margin-right: 8px;
 }
 </style>

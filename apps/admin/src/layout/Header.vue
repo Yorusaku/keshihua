@@ -1,77 +1,99 @@
-<!-- Header.vue 顶部导航栏 -->
-<!-- 阶段：🟣 纠偏阶段（Ant Design Vue） -->
+<!--
+  Admin 顶部栏
+  文件职责：展示当前页面、上下文参数和侧栏折叠控制。
+-->
 
 <script setup lang="ts">
-import { useBreadcrumb } from '@/composables';
-import { RightOutlined } from '@ant-design/icons-vue';
+import { computed } from 'vue';
+import { useRoute } from 'vue-router';
 
-const { breadcrumbList } = useBreadcrumb();
+const props = defineProps<{
+  collapsed: boolean;
+}>();
 
-const handleLogout = () => {
-  // 退出登录逻辑（预留）
-  console.log('handleLogout');
-};
+const emit = defineEmits<{
+  (event: 'toggle'): void;
+}>();
+
+const route = useRoute();
+
+const pageTitle = computed(() => (route.meta.title as string) || '工作台');
+const contextText = computed(() => {
+  const keys = ['lineId', 'agvId', 'sensorId', 'alertId', 'source'] as const;
+  const parts = [];
+  for (let i = 0; i < keys.length; i += 1) {
+    const key = keys[i];
+    const value = route.query[key];
+    if (typeof value === 'string' && value) {
+      parts.push(`${key}: ${value}`);
+    }
+  }
+  return parts.length ? parts.join(' · ') : '无外部上下文';
+});
 </script>
 
 <template>
-  <a-layout-header class="header">
-    <!-- 面包屑 - 动态渲染 -->
-    <a-breadcrumb class="header__breadcrumb">
-      <a-breadcrumb-item>
-        <a href="/">首页</a>
-      </a-breadcrumb-item>
-      <a-breadcrumb-item v-for="item in breadcrumbList" :key="item.path">
-        <a :href="item.path">{{ item.title }}</a>
-      </a-breadcrumb-item>
-    </a-breadcrumb>
+  <header class="admin-header">
+    <button class="admin-header__toggle" type="button" @click="emit('toggle')">
+      {{ props.collapsed ? '展开导航' : '收起导航' }}
+    </button>
 
-    <!-- 用户菜单 -->
-    <a-dropdown class="header__user" :trigger="['click']" @menu:click="handleLogout">
-      <span class="user__trigger">
-        <a-avatar :size="32" src="https://i.pravatar.cc/100?img=12" />
-        <span class="user__name">管理员</span>
-        <RightOutlined class="user__arrow" />
-      </span>
-      <template #overlay>
-        <a-menu>
-          <a-menu-item key="logout">退出登录</a-menu-item>
-        </a-menu>
-      </template>
-    </a-dropdown>
-  </a-layout-header>
+    <div class="admin-header__title">
+      <strong>{{ pageTitle }}</strong>
+      <span>{{ contextText }}</span>
+    </div>
+
+    <div class="admin-header__meta">
+      <span>数据闭环后台</span>
+    </div>
+  </header>
 </template>
 
 <style scoped>
-.header {
+.admin-header {
+  height: 72px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 24px;
-  background-color: #fff;
-  box-shadow: 0 1px 4px rgba(0, 21, 41, 0.08);
+  gap: 16px;
+  padding: 0 18px;
+  border-radius: 12px;
+  border: 1px solid rgba(150, 179, 200, 0.52);
+  background: linear-gradient(90deg, #fafdff 0%, #eef6ff 100%);
+  box-shadow: 0 8px 24px rgba(35, 86, 121, 0.12);
 }
 
-.header__breadcrumb {
-  flex: 1;
-  margin-left: 20px;
-}
-
-.header__user {
-  margin-left: 20px;
-}
-
-.user__trigger {
-  display: flex;
-  align-items: center;
+.admin-header__toggle {
+  border: 1px solid rgba(118, 157, 184, 0.7);
+  background: #edf6ff;
+  color: #1e4f76;
+  border-radius: 8px;
+  padding: 8px 12px;
   cursor: pointer;
 }
 
-.user__name {
-  margin-left: 8px;
-  font-size: 14px;
+.admin-header__title {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 
-.user__arrow {
-  margin-left: 4px;
+.admin-header__title strong {
+  font-size: 17px;
+  color: #1d3d58;
+}
+
+.admin-header__title span {
+  color: #567894;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.admin-header__meta {
+  color: #3f6585;
+  font-size: 13px;
 }
 </style>

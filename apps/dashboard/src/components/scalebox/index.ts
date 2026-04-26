@@ -13,9 +13,6 @@
 // ✅ 组件导出（默认导出）
 export { default as ScaleBox } from './ScaleBox.vue';
 
-// ✅ 类型导出（供外部使用 Props 类型）
-export type { ScaleBoxProps } from './ScaleBox.vue';
-
 // ✅ 工具函数导出（供外部调用计算逻辑）
 export { calculateScale } from './helpers';
 

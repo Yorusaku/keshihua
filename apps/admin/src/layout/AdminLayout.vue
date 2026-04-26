@@ -1,29 +1,26 @@
-<!-- AdminLayout.vue 主布局骨架 -->
-<!-- 阶段：🟣 纠偏阶段（精确引入修复） -->
+<!--
+  Admin 主布局
+  文件职责：提供固定侧边栏 + 顶部状态条 + 内容区容器。
+-->
 
 <script setup lang="ts">
-// ✅ 精准引入
+import { ref } from 'vue';
 import Sidebar from './Sidebar.vue';
 import Header from './Header.vue';
 
-interface AdminLayoutProps {
-  collapsed?: boolean;
-  showHeader?: boolean;
-}
+const collapsed = ref(false);
 
-withDefaults(defineProps<AdminLayoutProps>(), {
-  collapsed: false,
-  showHeader: true,
-});
+function toggleCollapsed(): void {
+  collapsed.value = !collapsed.value;
+}
 </script>
 
 <template>
-  <a-layout class="admin-layout" has-sider>
+  <a-layout class="admin-layout">
     <Sidebar :collapsed="collapsed" />
 
     <a-layout class="admin-layout__main">
-      <Header v-if="showHeader" />
-      
+      <Header :collapsed="collapsed" @toggle="toggleCollapsed" />
       <a-layout-content class="admin-layout__content">
         <router-view />
       </a-layout-content>
@@ -33,19 +30,20 @@ withDefaults(defineProps<AdminLayoutProps>(), {
 
 <style scoped>
 .admin-layout {
-  min-height: 100vh;
-  overflow: hidden;
-}
-.admin-layout__main {
-  display: flex;
-  flex-direction: column;
   height: 100vh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 80% -10%, rgba(43, 86, 121, 0.18), transparent 40%),
+    linear-gradient(180deg, #f3f6f9 0%, #eef3f8 100%);
 }
+
+.admin-layout__main {
+  min-width: 0;
+}
+
 .admin-layout__content {
-  margin: 24px;
-  padding: 24px; /* ✅ 加上 padding，让内容区更丰满 */
-  overflow-y: auto;
-  background-color: #f0f2f5;
-  flex: 1; /* ✅ 核心修复：强制占用剩余所有高度，防止塌陷！ */
+  height: calc(100vh - 72px);
+  overflow: auto;
+  padding: 16px 18px;
 }
 </style>

@@ -7,11 +7,12 @@
  * - useAddAgvMutation：AGV 新增 Mutation Hook
  */
 
-import type { UseMutationResult } from '@tanstack/vue-query';
-import { useMutation, useQueryClient } from '@tanstack/vue-query';
-import type { IAddAgvPayload, IAgvData } from '../api/agv';
+import type { UseMutationReturnType } from '@tanstack/vue-query';
+import { useMutation } from '@tanstack/vue-query';
+import type { IAddAgvPayload } from '../api/agv';
 import { addAgv } from '../api/agv';
 import { queryClient } from '../queryClient';
+import type { IAgvData } from '../../websocket/types';
 
 /**
  * 📌 AGV 新增 Mutation Hook（绿灯实现）
@@ -19,7 +20,7 @@ import { queryClient } from '../queryClient';
  *              在 onSuccess 回调中自动失效列表缓存，触发表格静默刷新
  * @returns UseMutationResult<IAgvData, Error, IAddAgvPayload>
  */
-export function useAddAgvMutation(): UseMutationResult<IAgvData, Error, IAddAgvPayload> {
+export function useAddAgvMutation(): UseMutationReturnType<IAgvData, Error, IAddAgvPayload, unknown> {
   return useMutation<IAgvData, Error, IAddAgvPayload>({
     // ✅ 使用 addAgv 函数作为 mutation 函数
     mutationFn: addAgv,

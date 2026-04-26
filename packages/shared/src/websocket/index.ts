@@ -11,6 +11,8 @@
  * - AgvSyncBus：跨端通信总线
  * - AGV_SYNC_CHANNEL：广播频道常量
  * - agvSyncBus：总线单例实例
+ * - MonitorableWebSocket：监控后的 WebSocket 类（任务二）
+ * - monitorWebSocket：便捷函数，创建监控后的 WebSocket 实例
  *
  * 🔄 调用方式变更：
  * - 之前：getDataBuffer().pushData(data)
@@ -29,7 +31,17 @@ export type { AgvSyncBus } from './AgvSyncBus';
 // ✅ 常量与实例导出
 export { AGV_SYNC_CHANNEL, agvSyncBus } from './AgvSyncBus';
 
+// ✅ WebSocket 监控工具导出（任务二）
+export { MonitorableWebSocket } from './_monitorUtils';
+
 // 📌 调用示例（生产环境）：
-// import { DataBuffer, IAgvData, agvSyncBus } from '@packages/shared';
+// import { DataBuffer, IAgvData, agvSyncBus, MonitorableWebSocket } from '@packages/shared';
 // DataBuffer.getInstance().pushData(data);
 // agvSyncBus.broadcastNewAgv(newAgvData);
+// 
+// // 任务二：WebSocket 监控
+// const ws = new MonitorableWebSocket('ws://localhost:8080', reporter, {
+//   withStack: false,
+// });
+// ws.send('hello');
+// ws.close();

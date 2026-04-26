@@ -11,7 +11,7 @@
  * - addAgv：AGV 新增 Mock 函数（占位，抛出错误）
  */
 
-import type { IAgvData } from '@/websocket/types';
+import type { IAgvData } from '../../websocket/types';
 import { agvSyncBus } from '../../websocket/AgvSyncBus';
 
 /**
@@ -135,4 +135,3 @@ export async function addAgv(payload: IAddAgvPayload): Promise<IAgvData> {
   // ✅ 返回新增的数据（包含生成的 timestamp）
   return newAgv;
 }
-

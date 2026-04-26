@@ -71,7 +71,6 @@ export function generateSensorTimeSeriesData(
 
   for (let i = 0; i < count; i++) {
     // ✅ 使用 Math.sin 生成波峰波谷趋势
-    const timeOffset = i * 60 * 1000;  // 每个数据点间隔 1 分钟
     const timestamp = now - (count - i) * 60 * 1000;
 
     // ✅ 核心算法：Math.sin + 随机噪点
@@ -90,10 +89,12 @@ export function generateSensorTimeSeriesData(
     });
   }
 
+  const firstPoint = data[0];
+  const lastPoint = data[data.length - 1];
   const response: ISensorTimeSeriesResponse = {
     sensorId: params.sensorId,
-    startTime: data[0].timestamp,
-    endTime: data[data.length - 1].timestamp,
+    startTime: firstPoint?.timestamp ?? now,
+    endTime: lastPoint?.timestamp ?? now,
     data,
     totalCount: data.length,
   };

@@ -1,11 +1,15 @@
 /**
  * AgvSyncBus - 跨端通信总线
- * 阶段：🟢 绿灯阶段（业务实现）
+ * 阶段：🟣 重构阶段（架构师级打磨）
  *
  * 📌 核心功能：
  * - 基于 BroadcastChannel API 实现跨 Tab/窗口实时通信
  * - 单例模式确保全局唯一实例
  * - 支持订阅/取消订阅机制
+ *
+ * 📌 监控扩展（任务二）：
+ * - 支持 WebSocket 封装类（当需要真实 WebSocket 通信时）
+ * - 提供错误捕获与断连监控能力
  */
 
 import type { IAgvData } from './types';

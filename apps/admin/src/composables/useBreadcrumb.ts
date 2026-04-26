@@ -9,7 +9,6 @@
 
 import { computed } from 'vue';
 import { useRoute } from 'vue-router';
-import type { AppRouteRecordRaw } from '@/types';
 
 /**
  * 📌 面包屑项类型
