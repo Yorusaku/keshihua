@@ -6,7 +6,7 @@
 import { createApp } from 'vue';
 import { createPinia } from 'pinia';
 import { VueQueryPlugin } from '@tanstack/vue-query';
-import { initMonitor, queryClient } from '@packages/shared';
+import { initMonitor, queryClient, useAuthStore, vPermission } from '@packages/shared';
 import { router } from '@/router';
 import App from '@/App.vue';
 
@@ -27,9 +27,14 @@ const monitor = initMonitor({
 
 const app = createApp(App);
 
+const pinia = createPinia();
 app.use(VueQueryPlugin, { queryClient });
-app.use(createPinia());
+app.use(pinia);
 app.use(router);
+app.directive('permission', vPermission);
+
+const authStore = useAuthStore();
+authStore.restoreSession();
 
 // 统一兜底：将未捕获的 Vue 运行时错误上报到监控 SDK。
 app.config.errorHandler = (error, instance, info) => {

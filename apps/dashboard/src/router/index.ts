@@ -9,26 +9,32 @@
  */
 
 import { createRouter, createWebHistory } from 'vue-router';
+import { setupAuthGuard } from '@packages/shared';
 import Dashboard from '@/views/Dashboard.vue';
 
-/**
- * 路由配置
- * @description 配置默认路由，MVP 阶段暂不使用路由懒加载
- */
 export const routes = [
+  {
+    path: '/login',
+    name: 'Login',
+    component: () => import('@/views/Login.vue'),
+    meta: {
+      requiresAuth: false,
+    },
+  },
   {
     path: '/',
     name: 'Dashboard',
     component: Dashboard,
+    meta: {
+      requiresAuth: true,
+      permissions: [{ resource: 'dashboard', action: 'view' }],
+    },
   },
 ];
 
-/**
- * 创建 Vue Router 实例
- * @returns Vue Router 实例
- */
 export const router = createRouter({
-  // ✅ 使用 history 模式（ cleaner URL）
   history: createWebHistory(),
   routes,
 });
+
+setupAuthGuard(router);
