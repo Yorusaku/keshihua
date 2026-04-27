@@ -18,6 +18,7 @@ const menuItems = [
   { key: 'agv', title: 'AGV 管理', path: '/agv', icon: '🚚' },
   { key: 'sensor', title: '传感器策略', path: '/agv/sensor', icon: '📡' },
   { key: 'report', title: '产能报表', path: '/agv/report', icon: '📊' },
+  { key: 'alert-center', title: '告警处理中心', path: '/agv/alert-center', icon: '🚨' },
 ];
 
 const selectedKeys = computed(() => {
@@ -25,6 +26,7 @@ const selectedKeys = computed(() => {
   if (typeof navKey === 'string') {
     return [navKey];
   }
+  if (route.path.includes('/alert-center')) return ['alert-center'];
   if (route.path.includes('/sensor')) return ['sensor'];
   if (route.path.includes('/report')) return ['report'];
   return ['agv'];

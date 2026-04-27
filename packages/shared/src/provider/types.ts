@@ -71,6 +71,19 @@ export interface SensorAlertItem {
   status: 'active' | 'acknowledged' | 'resolved';
   timestamp: number;
   acknowledgedAt?: number;
+
+  // 告警处理闭环字段
+  assignedTo?: string;
+  assignedAt?: number;
+  assignedBy?: string;
+  processingStatus?: AlertProcessingStatus;
+  rootCause?: string;
+  actionTaken?: string;
+  resolution?: string;
+  closedAt?: number;
+  closedBy?: string;
+  mttr?: number;
+  processRecords?: AlertProcessRecord[];
 }
 
 export interface CapacitySummary {
@@ -133,6 +146,121 @@ export interface SimulateSensorAlertPayload {
   message?: string;
 }
 
+// 告警处理进度状态
+export type AlertProcessingStatus =
+  | 'unassigned'
+  | 'assigned'
+  | 'in_progress'
+  | 'completed';
+
+// 告警处理记录
+export interface AlertProcessRecord {
+  id: string;
+  alertId: string;
+  operator: string;
+  operatorName?: string;
+  action: AlertProcessAction;
+  content: string;
+  timestamp: number;
+  attachments?: string[];
+}
+
+// 告警处理操作类型
+export type AlertProcessAction =
+  | 'assign'
+  | 'acknowledge'
+  | 'analyze'
+  | 'action'
+  | 'resolve'
+  | 'close'
+  | 'comment';
+
+// 告警查询参数
+export interface AlertQueryParams {
+  lineId?: string;
+  sensorId?: string;
+  severity?: SensorAlertItem['severity'];
+  status?: SensorAlertItem['status'];
+  processingStatus?: AlertProcessingStatus;
+  assignedTo?: string;
+  startTime?: number;
+  endTime?: number;
+  keyword?: string;
+  current?: number;
+  pageSize?: number;
+}
+
+// 告警查询响应
+export interface AlertQueryResponse {
+  total: number;
+  list: SensorAlertItem[];
+}
+
+// 责任人信息
+export interface AlertAssignee {
+  id: string;
+  name: string;
+  role: string;
+  department?: string;
+}
+
+// 告警统计数据
+export interface AlertStatistics {
+  totalCount: number;
+  activeCount: number;
+  resolvedCount: number;
+  avgMttr: number;
+  byLine: Record<string, number>;
+  bySeverity: Record<string, number>;
+  topFrequentSensors: Array<{
+    sensorId: string;
+    count: number;
+  }>;
+}
+
+// 分配告警
+export interface AssignAlertPayload {
+  alertId: string;
+  assignedTo: string;
+  assignedBy: string;
+  note?: string;
+}
+
+export interface AssignAlertResult {
+  alert: SensorAlertItem;
+  timeline?: EventTimelineItem;
+}
+
+// 更新处理记录
+export interface UpdateAlertProcessPayload {
+  alertId: string;
+  operator: string;
+  action: AlertProcessAction;
+  content: string;
+  rootCause?: string;
+  actionTaken?: string;
+}
+
+export interface UpdateAlertProcessResult {
+  alert: SensorAlertItem;
+  record: AlertProcessRecord;
+  timeline?: EventTimelineItem;
+}
+
+// 关闭告警
+export interface CloseAlertPayload {
+  alertId: string;
+  operator: string;
+  resolution: string;
+  rootCause?: string;
+  actionTaken?: string;
+}
+
+export interface CloseAlertResult {
+  alert: SensorAlertItem;
+  timeline?: EventTimelineItem;
+}
+
 export interface DataProvider {
   runtimeStatus: ProviderRuntimeStatus;
   getDashboardSnapshot(filters?: DashboardFilters): Promise<DashboardSnapshot>;
@@ -146,6 +274,14 @@ export interface DataProvider {
   getCapacityReport(params?: ICapacityReportParams): Promise<ICapacityReportData[]>;
   acknowledgeAlert(payload: AlertAcknowledgePayload): Promise<AlertAcknowledgeResult>;
   simulateSensorAlert(payload?: SimulateSensorAlertPayload): Promise<SensorAlertItem>;
+
+  // 告警处理闭环方法
+  assignAlert(payload: AssignAlertPayload): Promise<AssignAlertResult>;
+  updateAlertProcess(payload: UpdateAlertProcessPayload): Promise<UpdateAlertProcessResult>;
+  closeAlert(payload: CloseAlertPayload): Promise<CloseAlertResult>;
+  getAlertHistory(params: AlertQueryParams): Promise<AlertQueryResponse>;
+  getAlertStatistics(filters?: DashboardFilters): Promise<AlertStatistics>;
+  getAssignees(): Promise<AlertAssignee[]>;
 }
 
 export interface CreateDataProviderOptions {

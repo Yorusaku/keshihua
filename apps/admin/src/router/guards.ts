@@ -4,6 +4,7 @@
  */
 
 import type { Router } from 'vue-router';
+import { setupAuthGuard } from '@packages/shared';
 
 const APP_TITLE = '智造远望 · Admin';
 
@@ -24,6 +25,8 @@ function normalizeContextQuery(query: Record<string, unknown>): Record<string, s
 }
 
 export function setupRouterGuards(router: Router): void {
+  setupAuthGuard(router);
+
   router.beforeEach((to) => {
     if (to.name === 'NotFound') {
       return {

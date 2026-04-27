@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm --filter @packages/shared test alert-workflow)",
+      "Bash(pnpm --filter @packages/shared test --run)",
+      "Bash(pnpm test:coverage)",
+      "Bash(pnpm --filter @packages/shared build)",
+      "Bash(pnpm install *)",
+      "Bash(pnpm dev *)",
+      "Bash(curl -s http://localhost:5174)"
+    ]
+  }
+}

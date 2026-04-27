@@ -15,6 +15,17 @@ import type {
   ProductionLine,
   SensorAlertItem,
   SimulateSensorAlertPayload,
+  AssignAlertPayload,
+  AssignAlertResult,
+  UpdateAlertProcessPayload,
+  UpdateAlertProcessResult,
+  CloseAlertPayload,
+  CloseAlertResult,
+  AlertQueryParams,
+  AlertQueryResponse,
+  AlertAssignee,
+  AlertStatistics,
+  AlertProcessRecord,
 } from './types';
 
 const LINE_DEFS: ProductionLine[] = [
@@ -73,11 +84,13 @@ export class MockFactoryRuntime {
   private timeline: EventTimelineItem[] = [];
   private sequence = 0;
   private capacityTarget = 1680;
+  private assignees: AlertAssignee[] = [];
 
   constructor(now: () => number = () => Date.now()) {
     this.now = now;
     this.initializeAgv();
     this.seedAlerts();
+    this.initializeAssignees();
   }
 
   public getLines(): ProductionLine[] {
@@ -397,5 +410,261 @@ export class MockFactoryRuntime {
     this.timeline.unshift(item);
     this.timeline = this.timeline.slice(0, 80);
     return item;
+  }
+
+  private initializeAssignees(): void {
+    this.assignees = [
+      { id: 'user-001', name: '张工', role: '设备工程师', department: '设备部' },
+      { id: 'user-002', name: '李工', role: '电气工程师', department: '电气部' },
+      { id: 'user-003', name: '王工', role: '维修技师', department: '维修部' },
+      { id: 'user-004', name: '赵工', role: '质量工程师', department: '质量部' },
+      { id: 'user-005', name: '刘工', role: '工艺工程师', department: '工艺部' },
+    ];
+  }
+
+  public assignAlert(payload: AssignAlertPayload): AssignAlertResult {
+    const target = this.alerts.find((item) => item.id === payload.alertId);
+    if (!target) {
+      throw new Error('告警不存在');
+    }
+
+    const now = this.now();
+    target.assignedTo = payload.assignedTo;
+    target.assignedAt = now;
+    target.assignedBy = payload.assignedBy;
+    target.processingStatus = 'assigned';
+
+    if (!target.processRecords) {
+      target.processRecords = [];
+    }
+
+    const assignee = this.assignees.find((a) => a.id === payload.assignedTo);
+    const record: AlertProcessRecord = {
+      id: `RECORD-${now}-${this.sequence++}`,
+      alertId: target.id,
+      operator: payload.assignedBy,
+      operatorName: '系统管理员',
+      action: 'assign',
+      content: `分配给 ${assignee?.name || payload.assignedTo}${payload.note ? `，备注：${payload.note}` : ''}`,
+      timestamp: now,
+    };
+    target.processRecords.unshift(record);
+
+    const timeline = this.pushTimeline({
+      type: 'alert-ack',
+      level: 'info',
+      title: `告警已分配 ${target.sensorId}`,
+      description: `已分配给 ${assignee?.name || payload.assignedTo}`,
+      lineId: target.lineId,
+      alertId: target.id,
+      timestamp: now,
+    });
+
+    return {
+      alert: { ...target },
+      timeline,
+    };
+  }
+
+  public updateAlertProcess(payload: UpdateAlertProcessPayload): UpdateAlertProcessResult {
+    const target = this.alerts.find((item) => item.id === payload.alertId);
+    if (!target) {
+      throw new Error('告警不存在');
+    }
+
+    const now = this.now();
+
+    if (payload.rootCause) {
+      target.rootCause = payload.rootCause;
+    }
+    if (payload.actionTaken) {
+      target.actionTaken = payload.actionTaken;
+    }
+
+    if (target.processingStatus === 'assigned') {
+      target.processingStatus = 'in_progress';
+    }
+
+    if (!target.processRecords) {
+      target.processRecords = [];
+    }
+
+    const record: AlertProcessRecord = {
+      id: `RECORD-${now}-${this.sequence++}`,
+      alertId: target.id,
+      operator: payload.operator,
+      operatorName: this.assignees.find((a) => a.id === payload.operator)?.name,
+      action: payload.action,
+      content: payload.content,
+      timestamp: now,
+    };
+    target.processRecords.unshift(record);
+
+    const timeline = this.pushTimeline({
+      type: 'alert-ack',
+      level: 'info',
+      title: `告警处理记录 ${target.sensorId}`,
+      description: payload.content,
+      lineId: target.lineId,
+      alertId: target.id,
+      timestamp: now,
+    });
+
+    return {
+      alert: { ...target },
+      record,
+      timeline,
+    };
+  }
+
+  public closeAlert(payload: CloseAlertPayload): CloseAlertResult {
+    const target = this.alerts.find((item) => item.id === payload.alertId);
+    if (!target) {
+      throw new Error('告警不存在');
+    }
+
+    const now = this.now();
+    target.status = 'resolved';
+    target.processingStatus = 'completed';
+    target.closedAt = now;
+    target.closedBy = payload.operator;
+    target.resolution = payload.resolution;
+
+    if (payload.rootCause) {
+      target.rootCause = payload.rootCause;
+    }
+    if (payload.actionTaken) {
+      target.actionTaken = payload.actionTaken;
+    }
+
+    target.mttr = now - target.timestamp;
+
+    if (!target.processRecords) {
+      target.processRecords = [];
+    }
+
+    const record: AlertProcessRecord = {
+      id: `RECORD-${now}-${this.sequence++}`,
+      alertId: target.id,
+      operator: payload.operator,
+      operatorName: this.assignees.find((a) => a.id === payload.operator)?.name,
+      action: 'close',
+      content: `关闭告警，处理结果：${payload.resolution}`,
+      timestamp: now,
+    };
+    target.processRecords.unshift(record);
+
+    const timeline = this.pushTimeline({
+      type: 'alert-ack',
+      level: 'info',
+      title: `告警已关闭 ${target.sensorId}`,
+      description: payload.resolution,
+      lineId: target.lineId,
+      alertId: target.id,
+      timestamp: now,
+    });
+
+    return {
+      alert: { ...target },
+      timeline,
+    };
+  }
+
+  public getAlertHistory(params: AlertQueryParams): AlertQueryResponse {
+    let filtered = [...this.alerts];
+
+    if (params.lineId) {
+      filtered = filtered.filter((a) => a.lineId === params.lineId);
+    }
+    if (params.sensorId) {
+      filtered = filtered.filter((a) => a.sensorId === params.sensorId);
+    }
+    if (params.severity) {
+      filtered = filtered.filter((a) => a.severity === params.severity);
+    }
+    if (params.status) {
+      filtered = filtered.filter((a) => a.status === params.status);
+    }
+    if (params.processingStatus) {
+      filtered = filtered.filter((a) => a.processingStatus === params.processingStatus);
+    }
+    if (params.assignedTo) {
+      filtered = filtered.filter((a) => a.assignedTo === params.assignedTo);
+    }
+    if (params.startTime) {
+      filtered = filtered.filter((a) => a.timestamp >= params.startTime!);
+    }
+    if (params.endTime) {
+      filtered = filtered.filter((a) => a.timestamp <= params.endTime!);
+    }
+    if (params.keyword) {
+      const keyword = params.keyword.toLowerCase();
+      filtered = filtered.filter(
+        (a) =>
+          a.id.toLowerCase().includes(keyword) ||
+          a.sensorId.toLowerCase().includes(keyword)
+      );
+    }
+
+    filtered.sort((a, b) => b.timestamp - a.timestamp);
+
+    const current = params.current || 1;
+    const pageSize = params.pageSize || 20;
+    const start = (current - 1) * pageSize;
+    const end = start + pageSize;
+
+    return {
+      total: filtered.length,
+      list: filtered.slice(start, end),
+    };
+  }
+
+  public getAlertStatistics(filters?: DashboardFilters): AlertStatistics {
+    const now = this.now();
+    const monthStart = now - 30 * 24 * 60 * 60 * 1000;
+
+    let alerts = this.alerts.filter((a) => a.timestamp >= monthStart);
+
+    if (filters?.lineId && filters.lineId !== 'all') {
+      alerts = alerts.filter((a) => a.lineId === filters.lineId);
+    }
+
+    const totalCount = alerts.length;
+    const activeCount = alerts.filter((a) => a.status === 'active').length;
+    const resolvedCount = alerts.filter((a) => a.status === 'resolved').length;
+
+    const resolvedWithMttr = alerts.filter((a) => a.mttr !== undefined);
+    const avgMttr = resolvedWithMttr.length > 0
+      ? resolvedWithMttr.reduce((sum, a) => sum + (a.mttr || 0), 0) / resolvedWithMttr.length / 60000
+      : 0;
+
+    const byLine: Record<string, number> = {};
+    const bySeverity: Record<string, number> = {};
+    const sensorCount: Record<string, number> = {};
+
+    alerts.forEach((a) => {
+      byLine[a.lineId] = (byLine[a.lineId] || 0) + 1;
+      bySeverity[a.severity] = (bySeverity[a.severity] || 0) + 1;
+      sensorCount[a.sensorId] = (sensorCount[a.sensorId] || 0) + 1;
+    });
+
+    const topFrequentSensors = Object.entries(sensorCount)
+      .map(([sensorId, count]) => ({ sensorId, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    return {
+      totalCount,
+      activeCount,
+      resolvedCount,
+      avgMttr: Math.round(avgMttr * 10) / 10,
+      byLine,
+      bySeverity,
+      topFrequentSensors,
+    };
+  }
+
+  public getAssignees(): AlertAssignee[] {
+    return [...this.assignees];
   }
 }

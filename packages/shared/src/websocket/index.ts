@@ -27,9 +27,11 @@ export type { IAgvData, ReadonlyAgvSnapshot } from './types';
 
 // ✅ 跨端通信总线导出（类型）
 export type { AgvSyncBus } from './AgvSyncBus';
+export type { AlertSyncBus } from './AlertSyncBus';
 
 // ✅ 常量与实例导出
 export { AGV_SYNC_CHANNEL, agvSyncBus } from './AgvSyncBus';
+export { ALERT_SYNC_CHANNEL, alertSyncBus } from './AlertSyncBus';
 
 // ✅ WebSocket 监控工具导出（任务二）
 export { MonitorableWebSocket } from './_monitorUtils';

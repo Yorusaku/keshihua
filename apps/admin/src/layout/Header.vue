@@ -7,6 +7,7 @@
 import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 import { useBreadcrumb } from '@/composables';
+import UserInfo from '@/components/user/UserInfo.vue';
 
 const props = defineProps<{
   collapsed: boolean;
@@ -55,7 +56,7 @@ const contextText = computed(() => {
     </div>
 
     <div class="admin-header__meta">
-      <span>数据闭环后台</span>
+      <UserInfo />
     </div>
   </header>
 </template>

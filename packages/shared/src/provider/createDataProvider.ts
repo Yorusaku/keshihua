@@ -165,5 +165,23 @@ export async function createDataProvider(
     async simulateSensorAlert(payload) {
       return runtime.simulateSensorAlert(payload);
     },
+    async assignAlert(payload) {
+      return runtime.assignAlert(payload);
+    },
+    async updateAlertProcess(payload) {
+      return runtime.updateAlertProcess(payload);
+    },
+    async closeAlert(payload) {
+      return runtime.closeAlert(payload);
+    },
+    async getAlertHistory(params) {
+      return runtime.getAlertHistory(params);
+    },
+    async getAlertStatistics(filters) {
+      return runtime.getAlertStatistics(filters);
+    },
+    async getAssignees() {
+      return runtime.getAssignees();
+    },
   };
 }

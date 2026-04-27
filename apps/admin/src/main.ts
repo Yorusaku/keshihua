@@ -7,7 +7,7 @@ import { createApp } from 'vue';
 import { createPinia } from 'pinia';
 import Antd from 'ant-design-vue';
 import 'ant-design-vue/dist/reset.css';
-import { initMonitor } from '@packages/shared';
+import { initMonitor, useAuthStore, vPermission } from '@packages/shared';
 import App from './App.vue';
 import { router } from './router';
 
@@ -28,8 +28,13 @@ initMonitor({
 
 const app = createApp(App);
 
-app.use(createPinia());
+const pinia = createPinia();
+app.use(pinia);
 app.use(router);
 app.use(Antd);
+app.directive('permission', vPermission);
+
+const authStore = useAuthStore();
+authStore.restoreSession();
 
 app.mount('#app');

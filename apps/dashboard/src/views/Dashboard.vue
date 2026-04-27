@@ -11,6 +11,7 @@ import {
   DataBuffer,
   createDataProvider,
   useFeedback,
+  alertSyncBus,
   type AgvLiveItem,
   type DataProvider,
   type DashboardSnapshot,
@@ -141,6 +142,28 @@ function alertClass(alert: SensorAlertItem): string {
   return `alert-card--${alert.severity}`;
 }
 
+// 处理进度文本
+function getProcessingStatusText(status?: string): string {
+  const texts: Record<string, string> = {
+    unassigned: '未分配',
+    assigned: '已分配',
+    in_progress: '处理中',
+    completed: '已完成',
+  };
+  return texts[status || 'unassigned'] || '未分配';
+}
+
+// 处理进度颜色类
+function getProcessingStatusClass(status?: string): string {
+  const classes: Record<string, string> = {
+    unassigned: 'status-badge--default',
+    assigned: 'status-badge--blue',
+    in_progress: 'status-badge--orange',
+    completed: 'status-badge--green',
+  };
+  return classes[status || 'unassigned'] || 'status-badge--default';
+}
+
 function timelineClass(level: 'info' | 'warning' | 'critical'): string {
   if (level === 'critical') {
     return 'timeline-item--critical';
@@ -258,6 +281,24 @@ async function bootstrapDashboard(): Promise<void> {
     snapshotTimerId = window.setInterval(() => {
       void fetchSnapshot();
     }, 5000);
+
+    // 订阅告警跨端同步事件
+    const unsubscribeAssigned = alertSyncBus.subscribeAlertAssigned(() => {
+      void fetchSnapshot();
+    });
+    const unsubscribeUpdated = alertSyncBus.subscribeAlertUpdated(() => {
+      void fetchSnapshot();
+    });
+    const unsubscribeClosed = alertSyncBus.subscribeAlertClosed(() => {
+      void fetchSnapshot();
+    });
+
+    // 在清理时取消订阅
+    onBeforeUnmount(() => {
+      unsubscribeAssigned();
+      unsubscribeUpdated();
+      unsubscribeClosed();
+    });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : '初始化失败';
     loadingError.value = errorMessage;
@@ -434,6 +475,14 @@ onBeforeUnmount(() => {
               <span>{{ alert.sensorId }}</span>
             </header>
             <p>{{ alert.message }}</p>
+            <div class="alert-card__meta">
+              <span class="status-badge" :class="getProcessingStatusClass(alert.processingStatus)">
+                {{ getProcessingStatusText(alert.processingStatus) }}
+              </span>
+              <span v-if="alert.assignedTo" class="assignee-info">
+                责任人: {{ alert.assignedTo }}
+              </span>
+            </div>
             <footer>
               <span>当前值 {{ alert.value }} / 阈值 {{ alert.threshold }}</span>
               <div class="alert-card__actions">
@@ -746,6 +795,46 @@ onBeforeUnmount(() => {
   margin: 8px 0 10px;
   font-size: 13px;
   color: rgba(215, 232, 245, 0.9);
+}
+
+.alert-card__meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0;
+  font-size: 12px;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.status-badge--default {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.status-badge--blue {
+  background: rgba(24, 144, 255, 0.2);
+  color: #69c0ff;
+}
+
+.status-badge--orange {
+  background: rgba(250, 173, 20, 0.2);
+  color: #ffc53d;
+}
+
+.status-badge--green {
+  background: rgba(82, 196, 26, 0.2);
+  color: #95de64;
+}
+
+.assignee-info {
+  color: rgba(215, 232, 245, 0.8);
 }
 
 .alert-card footer {

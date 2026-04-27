@@ -8,6 +8,14 @@ import AdminLayout from '@/layout/AdminLayout.vue';
 
 export const adminRoutes: RouteRecordRaw[] = [
   {
+    path: '/login',
+    name: 'Login',
+    component: () => import('@/views/Login.vue'),
+    meta: {
+      requiresAuth: false,
+    },
+  },
+  {
     path: '/',
     redirect: '/agv',
   },
@@ -17,6 +25,7 @@ export const adminRoutes: RouteRecordRaw[] = [
     meta: {
       title: 'AGV 管理',
       navKey: 'agv',
+      requiresAuth: true,
     },
     children: [
       {
@@ -27,6 +36,7 @@ export const adminRoutes: RouteRecordRaw[] = [
           title: 'AGV 管理',
           navKey: 'agv',
           weight: 1,
+          permissions: [{ resource: 'agv', action: 'view' }],
         },
       },
       {
@@ -37,6 +47,7 @@ export const adminRoutes: RouteRecordRaw[] = [
           title: '传感器策略',
           navKey: 'sensor',
           weight: 2,
+          permissions: [{ resource: 'sensor', action: 'view' }],
         },
       },
       {
@@ -47,9 +58,26 @@ export const adminRoutes: RouteRecordRaw[] = [
           title: '产能报表',
           navKey: 'report',
           weight: 3,
+          permissions: [{ resource: 'report', action: 'view' }],
+        },
+      },
+      {
+        path: 'alert-center',
+        name: 'AdminAlertCenter',
+        component: () => import('@/views/AlertCenter.vue'),
+        meta: {
+          title: '告警处理中心',
+          navKey: 'alert-center',
+          weight: 4,
+          permissions: [{ resource: 'alert', action: 'view' }],
         },
       },
     ],
+  },
+  {
+    path: '/403',
+    name: 'Forbidden',
+    component: () => import('@/views/403.vue'),
   },
   {
     path: '/:pathMatch(.*)*',

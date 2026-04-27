@@ -32,3 +32,6 @@ export { default as SkeletonChart } from './components/loading/SkeletonChart.vue
 export { default as EmptyState } from './components/empty/EmptyState.vue';
 export { default as NoResults } from './components/empty/NoResults.vue';
 export { default as NetworkError } from './components/empty/NetworkError.vue';
+
+// 认证和权限系统
+export * from './auth';
