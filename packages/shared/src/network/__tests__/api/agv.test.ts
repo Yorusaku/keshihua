@@ -17,6 +17,7 @@ import { agvSyncBus } from '../../../websocket/AgvSyncBus';
 
 // ✅ Mock agvSyncBus.broadcastNewAgv 方法
 vi.spyOn(agvSyncBus, 'broadcastNewAgv');
+vi.spyOn(agvSyncBus, 'broadcastNewAgvEnvelope');
 
 describe('fetchAgvList - AGV List API', () => {
   describe('Default Pagination', () => {
@@ -234,8 +235,8 @@ describe('addAgv - AGV Add API', () => {
       vi.clearAllMocks();
     });
 
-    it('addAgv 应该在成功后调用 agvSyncBus.broadcastNewAgv', async () => {
-      // ✅ 预期：addAgv 应调用 broadcastNewAgv
+    it('addAgv 应该在成功后调用 agvSyncBus.broadcastNewAgvEnvelope', async () => {
+      // ✅ 预期：addAgv 应调用 broadcastNewAgvEnvelope
       const payload: IAddAgvPayload = {
         id: 'AGV-666',
         x: 100,
@@ -245,12 +246,12 @@ describe('addAgv - AGV Add API', () => {
 
       await addAgv(payload);
 
-      // ✅ 验证：broadcastNewAgv 被调用
-      expect(agvSyncBus.broadcastNewAgv).toHaveBeenCalled();
+      // ✅ 验证：broadcastNewAgvEnvelope 被调用
+      expect(agvSyncBus.broadcastNewAgvEnvelope).toHaveBeenCalled();
     });
 
     it('广播的数据应与返回数据一致', async () => {
-      // ✅ 预期：broadcastNewAgv 接收的数据应与返回的 newAgv 一致
+      // ✅ 预期：broadcastNewAgvEnvelope 的 payload 与返回的 newAgv 一致
       const payload: IAddAgvPayload = {
         id: 'AGV-555',
         x: 50,
@@ -260,8 +261,10 @@ describe('addAgv - AGV Add API', () => {
 
       const result = await addAgv(payload);
 
-      // ✅ 验证：broadcastNewAgv 被调用且接收正确数据
-      expect(agvSyncBus.broadcastNewAgv).toHaveBeenCalledWith(result);
+      // ✅ 验证：broadcastNewAgvEnvelope 被调用且 payload 正确
+      const envelope = vi.mocked(agvSyncBus.broadcastNewAgvEnvelope).mock.calls.at(-1)?.[0];
+      expect(envelope).toBeDefined();
+      expect(envelope?.payload).toEqual(result);
     });
   });
 });

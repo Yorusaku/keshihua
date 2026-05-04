@@ -5,6 +5,8 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
+    "dev:realtime": "turbo run dev --filter=@smart/realtime-server",
+    "dev:all": "turbo run dev --filter=@smart/realtime-server --filter=@smart/admin --filter=smart-dashboard",
     "lint": "turbo run lint",
     "test": "turbo run test",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",

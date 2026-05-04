@@ -17,6 +17,64 @@ import type {
 } from '@packages/shared';
 import { getSharedProvider } from '@/composables';
 import { alertSyncBus } from '@packages/shared';
+import {
+  createRealtimeMessageId,
+  createRealtimeSourceId,
+  getDomainRealtimeBus,
+  type RealtimeEnvelope,
+} from '@packages/shared';
+
+const realtimeSourceId = createRealtimeSourceId('admin-alert');
+const realtimeBus = getDomainRealtimeBus();
+const dedupCache = new Map<string, number>();
+const DEDUP_TTL_MS = 60_000;
+
+function makeDedupKey(envelope: RealtimeEnvelope<unknown>): string {
+  return `${envelope.messageId}:${envelope.sourceId}`;
+}
+
+function cleanupDedup(): void {
+  const now = Date.now();
+  dedupCache.forEach((timestamp, key) => {
+    if (now - timestamp > DEDUP_TTL_MS) {
+      dedupCache.delete(key);
+    }
+  });
+}
+
+function shouldConsumeEnvelope(envelope: RealtimeEnvelope<unknown>): boolean {
+  cleanupDedup();
+  const key = makeDedupKey(envelope);
+  if (dedupCache.has(key)) {
+    return false;
+  }
+  dedupCache.set(key, Date.now());
+  return true;
+}
+
+function buildAlertEnvelope(
+  topic: 'alert.assigned' | 'alert.updated' | 'alert.closed',
+  payload: SensorAlertItem
+): RealtimeEnvelope<SensorAlertItem> {
+  return {
+    messageId: createRealtimeMessageId('alert'),
+    topic,
+    sourceId: realtimeSourceId,
+    timestamp: Date.now(),
+    payload,
+  };
+}
+
+function publishAlertToAllChannels(envelope: RealtimeEnvelope<SensorAlertItem>): void {
+  if (envelope.topic === 'alert.assigned') {
+    alertSyncBus.broadcastAlertAssignedEnvelope(envelope);
+  } else if (envelope.topic === 'alert.updated') {
+    alertSyncBus.broadcastAlertUpdatedEnvelope(envelope);
+  } else if (envelope.topic === 'alert.closed') {
+    alertSyncBus.broadcastAlertClosedEnvelope(envelope);
+  }
+  realtimeBus.publishEnvelope(envelope);
+}
 
 export const useAlertCenterStore = defineStore('alertCenter', () => {
   // 获取数据提供器
@@ -90,7 +148,8 @@ export const useAlertCenterStore = defineStore('alertCenter', () => {
       const result = await provider.assignAlert(payload);
       if (result.alert) {
         updateAlertInList(result.alert);
-        alertSyncBus.broadcastAlertAssigned(result.alert);
+        const envelope = buildAlertEnvelope('alert.assigned', result.alert);
+        publishAlertToAllChannels(envelope);
       }
       return result;
     } catch (error) {
@@ -106,7 +165,8 @@ export const useAlertCenterStore = defineStore('alertCenter', () => {
       const result = await provider.updateAlertProcess(payload);
       if (result.alert) {
         updateAlertInList(result.alert);
-        alertSyncBus.broadcastAlertUpdated(result.alert);
+        const envelope = buildAlertEnvelope('alert.updated', result.alert);
+        publishAlertToAllChannels(envelope);
       }
       return result;
     } catch (error) {
@@ -122,7 +182,8 @@ export const useAlertCenterStore = defineStore('alertCenter', () => {
       const result = await provider.closeAlert(payload);
       if (result.alert) {
         updateAlertInList(result.alert);
-        alertSyncBus.broadcastAlertClosed(result.alert);
+        const envelope = buildAlertEnvelope('alert.closed', result.alert);
+        publishAlertToAllChannels(envelope);
       }
       return result;
     } catch (error) {
@@ -178,22 +239,55 @@ export const useAlertCenterStore = defineStore('alertCenter', () => {
 
   // 订阅跨端同步事件
   function subscribeAlertEvents() {
-    const unsubscribeAssigned = alertSyncBus.subscribeAlertAssigned((alert) => {
-      updateAlertInList(alert);
+    const unsubscribeAssigned = alertSyncBus.subscribeAlertAssignedEnvelope((envelope) => {
+      if (!shouldConsumeEnvelope(envelope)) {
+        return;
+      }
+      updateAlertInList(envelope.payload);
     });
 
-    const unsubscribeUpdated = alertSyncBus.subscribeAlertUpdated((alert) => {
-      updateAlertInList(alert);
+    const unsubscribeUpdated = alertSyncBus.subscribeAlertUpdatedEnvelope((envelope) => {
+      if (!shouldConsumeEnvelope(envelope)) {
+        return;
+      }
+      updateAlertInList(envelope.payload);
     });
 
-    const unsubscribeClosed = alertSyncBus.subscribeAlertClosed((alert) => {
-      updateAlertInList(alert);
+    const unsubscribeClosed = alertSyncBus.subscribeAlertClosedEnvelope((envelope) => {
+      if (!shouldConsumeEnvelope(envelope)) {
+        return;
+      }
+      updateAlertInList(envelope.payload);
+    });
+
+    const unsubscribeWsAssigned = realtimeBus.subscribe('alert.assigned', (envelope) => {
+      if (!shouldConsumeEnvelope(envelope)) {
+        return;
+      }
+      updateAlertInList(envelope.payload);
+    });
+
+    const unsubscribeWsUpdated = realtimeBus.subscribe('alert.updated', (envelope) => {
+      if (!shouldConsumeEnvelope(envelope)) {
+        return;
+      }
+      updateAlertInList(envelope.payload);
+    });
+
+    const unsubscribeWsClosed = realtimeBus.subscribe('alert.closed', (envelope) => {
+      if (!shouldConsumeEnvelope(envelope)) {
+        return;
+      }
+      updateAlertInList(envelope.payload);
     });
 
     return () => {
       unsubscribeAssigned();
       unsubscribeUpdated();
       unsubscribeClosed();
+      unsubscribeWsAssigned();
+      unsubscribeWsUpdated();
+      unsubscribeWsClosed();
     };
   }
 

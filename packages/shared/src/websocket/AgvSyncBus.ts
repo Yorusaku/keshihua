@@ -13,6 +13,7 @@
  */
 
 import type { IAgvData } from './types';
+import type { RealtimeEnvelope } from './realtime.types';
 
 /**
  * 📌 AgvSyncBus 接口
@@ -26,11 +27,24 @@ export interface AgvSyncBus {
   broadcastNewAgv: (agv: IAgvData) => void;
 
   /**
+   * 广播新车数据（Envelope 版本）
+   * @param envelope 包含 messageId/sourceId 的实时消息
+   */
+  broadcastNewAgvEnvelope: (envelope: RealtimeEnvelope<IAgvData>) => void;
+
+  /**
    * 订阅新车数据
    * @param callback 收到新车数据时的回调函数
    * @returns unsubscribe 函数，用于取消订阅
    */
   subscribeNewAgv: (callback: (agv: IAgvData) => void) => () => void;
+
+  /**
+   * 订阅新车数据（Envelope 版本）
+   */
+  subscribeNewAgvEnvelope: (
+    callback: (envelope: RealtimeEnvelope<IAgvData>) => void
+  ) => () => void;
 }
 
 /**
@@ -49,10 +63,18 @@ function createAgvSyncBus(): AgvSyncBus {
 
   // ✅ 存储所有订阅的回调函数
   const subscribers = new Set<(agv: IAgvData) => void>();
+  const envelopeSubscribers = new Set<(envelope: RealtimeEnvelope<IAgvData>) => void>();
 
   // ✅ 监听 message 事件，分发给所有订阅者
-  channel.addEventListener('message', (event: MessageEvent<IAgvData>) => {
-    const agv = event.data;
+  channel.addEventListener('message', (event: MessageEvent<IAgvData | RealtimeEnvelope<IAgvData>>) => {
+    const data = event.data;
+    if (data && typeof data === 'object' && 'messageId' in data && 'payload' in data) {
+      const envelope = data as RealtimeEnvelope<IAgvData>;
+      envelopeSubscribers.forEach((callback) => callback(envelope));
+      subscribers.forEach((callback) => callback(envelope.payload));
+      return;
+    }
+    const agv = data as IAgvData;
     subscribers.forEach(callback => callback(agv));
   });
 
@@ -63,6 +85,9 @@ function createAgvSyncBus(): AgvSyncBus {
      */
     broadcastNewAgv: (agv: IAgvData): void => {
       channel.postMessage(agv);
+    },
+    broadcastNewAgvEnvelope: (envelope: RealtimeEnvelope<IAgvData>): void => {
+      channel.postMessage(envelope);
     },
 
     /**
@@ -76,6 +101,14 @@ function createAgvSyncBus(): AgvSyncBus {
       // ✅ 返回 unsubscribe 函数
       return () => {
         subscribers.delete(callback);
+      };
+    },
+    subscribeNewAgvEnvelope: (
+      callback: (envelope: RealtimeEnvelope<IAgvData>) => void
+    ): (() => void) => {
+      envelopeSubscribers.add(callback);
+      return () => {
+        envelopeSubscribers.delete(callback);
       };
     },
   };

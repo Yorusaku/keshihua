@@ -1,16 +1,11 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
+  readonly VITE_ADMIN_BASE_URL?: string;
   readonly VITE_REALTIME_WS_URL?: string;
   readonly VITE_REALTIME_ENABLE?: string;
 }
 
 interface ImportMeta {
   readonly env: ImportMetaEnv;
-}
-
-declare module '*.vue' {
-  import type { DefineComponent } from 'vue';
-  const component: DefineComponent<Record<string, unknown>, Record<string, unknown>, any>;
-  export default component;
 }

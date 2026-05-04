@@ -10,8 +10,11 @@ import { AgvRenderer } from '@packages/charts';
 import {
   DataBuffer,
   createDataProvider,
+  getDomainRealtimeBus,
+  agvSyncBus,
   useFeedback,
   alertSyncBus,
+  type RealtimeEnvelope,
   type AgvLiveItem,
   type DataProvider,
   type DashboardSnapshot,
@@ -40,8 +43,43 @@ const agvMapRef = shallowRef<Map<string, AgvLiveItem>>(new Map());
 let stopAgvStream: (() => void) | null = null;
 let snapshotTimerId: number | null = null;
 let snapshotPending = false;
+const domainRealtimeBus = getDomainRealtimeBus();
+const messageDedupCache = new Map<string, number>();
+const DEDUP_TTL_MS = 60_000;
 
 const adminBaseUrl = (import.meta.env.VITE_ADMIN_BASE_URL as string | undefined) || 'http://localhost:5174';
+
+function shouldConsumeEnvelope(envelope: RealtimeEnvelope<unknown>): boolean {
+  const now = Date.now();
+  messageDedupCache.forEach((timestamp, key) => {
+    if (now - timestamp > DEDUP_TTL_MS) {
+      messageDedupCache.delete(key);
+    }
+  });
+  const key = `${envelope.messageId}:${envelope.sourceId}`;
+  if (messageDedupCache.has(key)) {
+    return false;
+  }
+  messageDedupCache.set(key, now);
+  return true;
+}
+
+function toLiveAgvItem(agv: {
+  id: string;
+  x: number;
+  y: number;
+  status: 'idle' | 'moving' | 'error';
+  timestamp: number;
+}): AgvLiveItem {
+  return {
+    ...agv,
+    lineId: 'line-a',
+    zoneId: 'line-a-zone-1',
+    battery: 100,
+    speed: agv.status === 'moving' ? 1.2 : 0,
+    task: agv.status === 'moving' ? '物料转运' : '待命',
+  };
+}
 
 const selectedLineId = computed({
   get: () => filters.value.lineId || 'all',
@@ -283,14 +321,59 @@ async function bootstrapDashboard(): Promise<void> {
     }, 5000);
 
     // 订阅告警跨端同步事件
-    const unsubscribeAssigned = alertSyncBus.subscribeAlertAssigned(() => {
+    const unsubscribeAssigned = alertSyncBus.subscribeAlertAssignedEnvelope((envelope) => {
+      if (!shouldConsumeEnvelope(envelope)) {
+        return;
+      }
       void fetchSnapshot();
     });
-    const unsubscribeUpdated = alertSyncBus.subscribeAlertUpdated(() => {
+    const unsubscribeUpdated = alertSyncBus.subscribeAlertUpdatedEnvelope((envelope) => {
+      if (!shouldConsumeEnvelope(envelope)) {
+        return;
+      }
       void fetchSnapshot();
     });
-    const unsubscribeClosed = alertSyncBus.subscribeAlertClosed(() => {
+    const unsubscribeClosed = alertSyncBus.subscribeAlertClosedEnvelope((envelope) => {
+      if (!shouldConsumeEnvelope(envelope)) {
+        return;
+      }
       void fetchSnapshot();
+    });
+    const unsubscribeWsAssigned = domainRealtimeBus.subscribe('alert.assigned', (envelope) => {
+      if (!shouldConsumeEnvelope(envelope)) {
+        return;
+      }
+      void fetchSnapshot();
+    });
+    const unsubscribeWsUpdated = domainRealtimeBus.subscribe('alert.updated', (envelope) => {
+      if (!shouldConsumeEnvelope(envelope)) {
+        return;
+      }
+      void fetchSnapshot();
+    });
+    const unsubscribeWsClosed = domainRealtimeBus.subscribe('alert.closed', (envelope) => {
+      if (!shouldConsumeEnvelope(envelope)) {
+        return;
+      }
+      void fetchSnapshot();
+    });
+    const unsubscribeLocalAgv = agvSyncBus.subscribeNewAgvEnvelope((envelope) => {
+      if (!shouldConsumeEnvelope(envelope)) {
+        return;
+      }
+      const currentMap = new Map(agvMapRef.value);
+      currentMap.set(envelope.payload.id, toLiveAgvItem(envelope.payload));
+      agvMapRef.value = currentMap;
+      DataBuffer.getInstance().pushData([envelope.payload]);
+    });
+    const unsubscribeWsAgv = domainRealtimeBus.subscribe('agv.created', (envelope) => {
+      if (!shouldConsumeEnvelope(envelope)) {
+        return;
+      }
+      const currentMap = new Map(agvMapRef.value);
+      currentMap.set(envelope.payload.id, toLiveAgvItem(envelope.payload));
+      agvMapRef.value = currentMap;
+      DataBuffer.getInstance().pushData([envelope.payload]);
     });
 
     // 在清理时取消订阅
@@ -298,6 +381,11 @@ async function bootstrapDashboard(): Promise<void> {
       unsubscribeAssigned();
       unsubscribeUpdated();
       unsubscribeClosed();
+      unsubscribeWsAssigned();
+      unsubscribeWsUpdated();
+      unsubscribeWsClosed();
+      unsubscribeLocalAgv();
+      unsubscribeWsAgv();
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : '初始化失败';
@@ -327,6 +415,7 @@ function cleanupDashboard(): void {
     rendererRef.value = null;
   }
   DataBuffer.getInstance().clear();
+  messageDedupCache.clear();
 }
 
 watch(

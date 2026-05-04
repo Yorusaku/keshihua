@@ -17,5 +17,15 @@ vi.mock('@antv/s2', () => ({
     render: vi.fn(),
     destroy: vi.fn(),
     setDataCfg: vi.fn(),
+    changeSheetSize: vi.fn(),
   })),
 }));
+
+if (typeof ResizeObserver === 'undefined') {
+  class MockResizeObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+  vi.stubGlobal('ResizeObserver', MockResizeObserver as unknown as typeof ResizeObserver);
+}

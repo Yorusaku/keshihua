@@ -6,7 +6,13 @@
 import { createApp } from 'vue';
 import { createPinia } from 'pinia';
 import { VueQueryPlugin } from '@tanstack/vue-query';
-import { initMonitor, queryClient, useAuthStore, vPermission } from '@packages/shared';
+import {
+  initMonitor,
+  queryClient,
+  setRealtimeReporter,
+  useAuthStore,
+  vPermission,
+} from '@packages/shared';
 import { router } from '@/router';
 import App from '@/App.vue';
 
@@ -22,6 +28,14 @@ const monitor = initMonitor({
   },
   error: {
     withStack: false,
+  },
+});
+
+setRealtimeReporter({
+  report: (data) => {
+    if ((data as { type?: string }).type === 'error') {
+      monitor.reportError(new Error('realtime-client-error'), data as Record<string, unknown>);
+    }
   },
 });
 

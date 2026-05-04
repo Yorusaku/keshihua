@@ -1,20 +1,14 @@
-<!--
-  产能报表页
-  文件职责：展示班次 KPI、产量趋势和明细报表。
--->
-
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
-import { TrendChart } from '@packages/charts';
 import type { ICapacityReportData } from '@packages/shared';
 import { ensureSharedProvider } from '@/composables';
 import { useFeedback, SkeletonCard, SkeletonChart } from '@packages/shared';
+import CapacityPivotSheet from '@/views/components/CapacityPivotSheet.vue';
 
 const { toast } = useFeedback();
 const loading = ref(false);
 const sourceLabel = ref('--');
 const reportRows = ref<ICapacityReportData[]>([]);
-const trendData = ref<Array<{ time: number; value: number }>>([]);
 
 const totalYield = computed(() =>
   reportRows.value.reduce((sum, item) => sum + item.yield, 0)
@@ -32,21 +26,7 @@ async function refreshReport(): Promise<void> {
     const provider = await ensureSharedProvider('auto');
     sourceLabel.value = provider.runtimeStatus.sourceLabel;
     const rows = await provider.getCapacityReport();
-    reportRows.value = rows.slice(0, 80);
-
-    const grouped = new Map<string, number>();
-    for (let i = 0; i < reportRows.value.length; i += 1) {
-      const row = reportRows.value[i];
-      if (!row) continue;
-      grouped.set(row.date, (grouped.get(row.date) || 0) + row.yield);
-    }
-
-    trendData.value = Array.from(grouped.entries())
-      .sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime())
-      .map(([date, value]) => ({
-        time: new Date(date).getTime(),
-        value,
-      }));
+    reportRows.value = rows;
   } catch (error) {
     toast.error('获取报表失败：' + (error as Error).message);
   } finally {
@@ -87,26 +67,9 @@ onMounted(async () => {
         </div>
       </div>
 
-      <div class="report-page__chart">
-        <TrendChart
-          :data="trendData"
-          title="日产量趋势"
-          color="#2f9a82"
-          :line-width="2"
-        />
+      <div class="report-page__sheet">
+        <CapacityPivotSheet :rows="reportRows" />
       </div>
-
-      <a-table :data-source="reportRows" :pagination="{ pageSize: 10 }" row-key="date">
-        <a-table-column title="工厂" data-index="factory" key="factory" />
-        <a-table-column title="产线" data-index="line" key="line" />
-        <a-table-column title="日期" data-index="date" key="date" />
-        <a-table-column title="产量" data-index="yield" key="yield" />
-        <a-table-column title="不良率" key="defectRate">
-          <template #default="{ record }">
-            {{ (record.defectRate * 100).toFixed(2) }}%
-          </template>
-        </a-table-column>
-      </a-table>
     </a-spin>
   </a-card>
 </template>
@@ -143,12 +106,7 @@ onMounted(async () => {
   font-size: 22px;
 }
 
-.report-page__chart {
-  height: 280px;
-  border: 1px solid #d6e4f0;
-  border-radius: 10px;
+.report-page__sheet {
   margin-bottom: 12px;
-  padding: 8px;
-  background: #f9fcff;
 }
 </style>

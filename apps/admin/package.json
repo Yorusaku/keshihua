@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@ant-design/icons-vue": "^7.0.1",
+    "@antv/s2": "^2.0.3",
     "@packages/charts": "workspace:*",
     "@packages/shared": "workspace:*",
     "ant-design-vue": "^4.2.6",

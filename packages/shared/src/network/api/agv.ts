@@ -1,41 +1,24 @@
-/**
- * AGV 网络 API
- * 文件路径：packages/shared/src/network/api/agv.ts
- * 阶段：🔴 红灯阶段（占位文件）
- *
- * 📌 功能说明：
- * - IAgvListParams：AGV 列表查询参数接口
- * - IAgvListResponse：AGV 列表响应接口
- * - fetchAgvList：AGV 列表 Mock 请求函数（500ms 延迟 + 20条数据）
- * - IAddAgvPayload：AGV 新增入参接口
- * - addAgv：AGV 新增 Mock 函数（占位，抛出错误）
- */
-
 import type { IAgvData } from '../../websocket/types';
 import { agvSyncBus } from '../../websocket/AgvSyncBus';
+import { getDomainRealtimeBus } from '../../websocket/realtime';
+import {
+  createRealtimeMessageId,
+  createRealtimeSourceId,
+  type RealtimeEnvelope,
+} from '../../websocket/realtime.types';
 
-/**
- * 📌 AGV 列表查询参数接口
- */
 export interface IAgvListParams {
-  current: number;     // 当前页码（从 1 开始）
-  pageSize: number;    // 每页条数
-  keyword?: string;    // 搜索关键字（车号模糊匹配）
-  status?: string;     // AGV 状态过滤（idle / moving / error）
+  current: number;
+  pageSize: number;
+  keyword?: string;
+  status?: string;
 }
 
-/**
- * 📌 AGV 列表响应接口
- */
 export interface IAgvListResponse {
-  total: number;       // 总数据条数
-  list: IAgvData[];    // 当前页数据列表
+  total: number;
+  list: IAgvData[];
 }
 
-/**
- * 📌 AGV 列表 Mock 数据（20条固定数据）
- * @description 包含不同状态和坐标的 AGV 数据
- */
 const mockAgvData: IAgvData[] = [
   { id: 'AGV-001', x: 120.5, y: 340.2, status: 'idle', timestamp: Date.now() },
   { id: 'AGV-002', x: 800.1, y: 150.8, status: 'moving', timestamp: Date.now() },
@@ -59,79 +42,60 @@ const mockAgvData: IAgvData[] = [
   { id: 'AGV-020', x: 830.8, y: 140.4, status: 'error', timestamp: Date.now() },
 ];
 
-/**
- * 📌 AGV 列表 Mock 请求函数（绿灯实现）
- * @description 实现 Mock API 逻辑：500ms延迟 + 过滤 + 分页
- * @param params 查询参数
- * @returns Mock 响应数据
- */
+const localSourceId = createRealtimeSourceId('agv-api');
+
 export async function fetchAgvList(params: IAgvListParams): Promise<IAgvListResponse> {
-  // ✅ 模拟 500ms 网络延迟（提升用户体验感知）
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
-  // ✅ 步骤1： initial filtering with all data
+  await new Promise((resolve) => setTimeout(resolve, 500));
+
   let filtered = mockAgvData;
-  
-  // ✅ 步骤2：关键字过滤（车号模糊匹配，忽略大小写）
   if (params.keyword && params.keyword.trim() !== '') {
-    filtered = filtered.filter(d => 
-      d.id.toLowerCase().includes(params.keyword!.toLowerCase().trim())
-    );
+    const keyword = params.keyword.trim().toLowerCase();
+    filtered = filtered.filter((d) => d.id.toLowerCase().includes(keyword));
   }
-  
-  // ✅ 步骤3：状态过滤
   if (params.status && params.status.trim() !== '') {
-    filtered = filtered.filter(d => d.status === params.status);
+    filtered = filtered.filter((d) => d.status === params.status);
   }
-  
-  // ✅ 步骤4：分页切片
+
   const total = filtered.length;
   const start = (params.current - 1) * params.pageSize;
   const end = start + params.pageSize;
-  const paginated = filtered.slice(start, end);
-  
-  // ✅ 返回结果
   return {
     total,
-    list: paginated,
+    list: filtered.slice(start, end),
   };
 }
 
-/**
- * 📌 AGV 新增入参接口（蓝灯设计）
- */
 export interface IAddAgvPayload {
-  id: string;          // 车号（格式：AGV-XXX）
-  x: number;           // X 坐标
-  y: number;           // Y 坐标
-  status: 'idle' | 'moving' | 'error';  // 状态枚举
+  id: string;
+  x: number;
+  y: number;
+  status: 'idle' | 'moving' | 'error';
 }
 
-/**
- * 📌 AGV 新增 Mock 函数（绿灯实现）
- * @description 实现 Mock API 逻辑：500ms延迟 + unshift 插入数组头部
- * @param payload 新增数据入参 IAddAgvPayload
- * @returns 新增的 AGV 数据
- */
 export async function addAgv(payload: IAddAgvPayload): Promise<IAgvData> {
-  // ✅ 模拟 500ms 网络延迟（与列表查询保持一致）
-  await new Promise(resolve => setTimeout(resolve, 500));
+  await new Promise((resolve) => setTimeout(resolve, 500));
 
-  // ✅ 生成新的 AGV 数据对象
   const newAgv: IAgvData = {
     id: payload.id,
     x: payload.x,
     y: payload.y,
     status: payload.status,
-    timestamp: Date.now(),  // ✅ 附加时间戳
+    timestamp: Date.now(),
   };
 
-  // ✅ 将新数据 push 到 mockAgvData 数组头部（模拟真实新增）
   mockAgvData.unshift(newAgv);
 
-  // ✅ 广播新车数据到 Dashboard 大屏（跨端实时同步）
-  agvSyncBus.broadcastNewAgv(newAgv);
+  const envelope: RealtimeEnvelope<IAgvData> = {
+    messageId: createRealtimeMessageId('agv'),
+    topic: 'agv.created' as const,
+    sourceId: localSourceId,
+    timestamp: Date.now(),
+    payload: newAgv,
+  };
+  agvSyncBus.broadcastNewAgvEnvelope(envelope);
+  getDomainRealtimeBus().publishEnvelope(envelope);
 
-  // ✅ 返回新增的数据（包含生成的 timestamp）
   return newAgv;
 }
+
+export { mockAgvData };

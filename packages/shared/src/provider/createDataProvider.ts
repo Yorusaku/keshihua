@@ -7,6 +7,13 @@ import { addAgv, fetchAgvList } from '../network/api/agv';
 import { fetchCapacityData } from '../network/queries/capacity';
 import { fetchCapacityReport } from '../network/api/report';
 import { fetchSensorTimeSeries } from '../network/api/sensor';
+import { agvSyncBus } from '../websocket/AgvSyncBus';
+import { getDomainRealtimeBus } from '../websocket/realtime';
+import {
+  createRealtimeMessageId,
+  createRealtimeSourceId,
+  type RealtimeEnvelope,
+} from '../websocket/realtime.types';
 import { MockFactoryRuntime } from './mockRuntime';
 import type {
   CreateDataProviderOptions,
@@ -17,6 +24,7 @@ import type {
   ProviderResolvedMode,
   ProviderRuntimeStatus,
 } from './types';
+import type { IAgvData } from '../websocket/types';
 
 function createRuntimeStatus(
   requestedMode: DataProviderMode,
@@ -76,6 +84,20 @@ function buildStatusBar(
     sourceLabel: runtime.sourceLabel,
     lastSyncAt: now,
   };
+}
+
+const mockRealtimeSourceId = createRealtimeSourceId('mock-agv');
+
+function publishMockAgvCreated(agv: IAgvData): void {
+  const envelope: RealtimeEnvelope<IAgvData> = {
+    messageId: createRealtimeMessageId('agv'),
+    topic: 'agv.created',
+    sourceId: mockRealtimeSourceId,
+    timestamp: Date.now(),
+    payload: agv,
+  };
+  agvSyncBus.broadcastNewAgvEnvelope(envelope);
+  getDomainRealtimeBus().publishEnvelope(envelope);
 }
 
 export async function createDataProvider(
@@ -148,10 +170,14 @@ export async function createDataProvider(
         try {
           return await addAgv(payload);
         } catch {
-          return runtime.addAgv(payload);
+          const created = runtime.addAgv(payload);
+          publishMockAgvCreated(created);
+          return created;
         }
       }
-      return runtime.addAgv(payload);
+      const created = runtime.addAgv(payload);
+      publishMockAgvCreated(created);
+      return created;
     },
     async getSensorTrend(params) {
       return fetchSensorTimeSeries(params);
