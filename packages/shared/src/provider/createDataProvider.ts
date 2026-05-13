@@ -1,20 +1,15 @@
-/**
- * 统一数据提供器工厂
- * 文件职责：根据 auto/api/mock 策略选择运行模式，并提供一致的数据访问接口。
- */
-
-import { addAgv, fetchAgvList } from '../network/api/agv';
-import { fetchCapacityData } from '../network/queries/capacity';
-import { fetchCapacityReport } from '../network/api/report';
-import { fetchSensorTimeSeries } from '../network/api/sensor';
-import { agvSyncBus } from '../websocket/AgvSyncBus';
-import { getDomainRealtimeBus } from '../websocket/realtime';
+﻿import { addAgv, fetchAgvList } from "../network/api/agv";
+import { fetchCapacityData } from "../network/queries/capacity";
+import { fetchCapacityReport } from "../network/api/report";
+import { fetchSensorTimeSeries } from "../network/api/sensor";
+import { agvSyncBus } from "../websocket/AgvSyncBus";
+import { getDomainRealtimeBus } from "../websocket/realtime";
 import {
   createRealtimeMessageId,
   createRealtimeSourceId,
   type RealtimeEnvelope,
-} from '../websocket/realtime.types';
-import { MockFactoryRuntime } from './mockRuntime';
+} from "../websocket/realtime.types";
+import { MockFactoryRuntime } from "./mockRuntime";
 import type {
   CreateDataProviderOptions,
   DataProvider,
@@ -23,8 +18,9 @@ import type {
   DashboardSnapshot,
   ProviderResolvedMode,
   ProviderRuntimeStatus,
-} from './types';
-import type { IAgvData } from '../websocket/types';
+} from "./types";
+import type { IAgvData } from "../websocket/types";
+import { apiPost, apiGet } from "../network/api-client";
 
 function createRuntimeStatus(
   requestedMode: DataProviderMode,
@@ -34,33 +30,27 @@ function createRuntimeStatus(
   return {
     requestedMode,
     resolvedMode,
-    sourceLabel: resolvedMode === 'api' ? '真实接口' : '模拟数据',
+    sourceLabel: resolvedMode === "api" ? "真实接口" : "模拟数据",
     detectedAt,
   };
 }
 
 async function resolveMode(options: CreateDataProviderOptions): Promise<ProviderResolvedMode> {
-  const mode = options.mode || 'auto';
-  if (mode === 'api') {
-    return 'api';
-  }
-  if (mode === 'mock') {
-    return 'mock';
-  }
+  const mode = options.mode || "auto";
+  if (mode === "api") return "api";
+  if (mode === "mock") return "mock";
 
-  const fetchImpl = options.fetchImpl || (typeof fetch !== 'undefined' ? fetch.bind(globalThis) : undefined);
-  if (!fetchImpl) {
-    return 'mock';
-  }
+  const fetchImpl = options.fetchImpl || (typeof fetch !== "undefined" ? fetch.bind(globalThis) : undefined);
+  if (!fetchImpl) return "mock";
 
   try {
-    const response = await fetchImpl(options.probeUrl || '/api/health', {
-      method: 'GET',
-      headers: { 'x-data-provider-probe': '1' },
+    const response = await fetchImpl(options.probeUrl || "/api/health", {
+      method: "GET",
+      headers: { "x-data-provider-probe": "1" },
     });
-    return response.ok ? 'api' : 'mock';
+    return response.ok ? "api" : "mock";
   } catch {
-    return 'mock';
+    return "mock";
   }
 }
 
@@ -69,12 +59,11 @@ function buildStatusBar(
   filters: DashboardFilters | undefined,
   runtime: ProviderRuntimeStatus,
   now: number
-): DashboardSnapshot['statusBar'] {
+): DashboardSnapshot["statusBar"] {
   const lineLabel =
-    !filters?.lineId || filters.lineId === 'all'
-      ? '全产线'
+    !filters?.lineId || filters.lineId === "all"
+      ? "全产线"
       : snapshot.lines.find((line) => line.id === filters.lineId)?.name || filters.lineId;
-
   return {
     shift: snapshot.capacity.shift,
     lineLabel,
@@ -86,12 +75,12 @@ function buildStatusBar(
   };
 }
 
-const mockRealtimeSourceId = createRealtimeSourceId('mock-agv');
+const mockRealtimeSourceId = createRealtimeSourceId("mock-agv");
 
 function publishMockAgvCreated(agv: IAgvData): void {
   const envelope: RealtimeEnvelope<IAgvData> = {
-    messageId: createRealtimeMessageId('agv'),
-    topic: 'agv.created',
+    messageId: createRealtimeMessageId("agv"),
+    topic: "agv.created",
     sourceId: mockRealtimeSourceId,
     timestamp: Date.now(),
     payload: agv,
@@ -105,17 +94,17 @@ export async function createDataProvider(
 ): Promise<DataProvider> {
   const now = options.now || (() => Date.now());
   const resolvedMode = await resolveMode(options);
-  const runtimeStatus = createRuntimeStatus(options.mode || 'auto', resolvedMode, now());
+  const runtimeStatus = createRuntimeStatus(options.mode || "auto", resolvedMode, now());
   const runtime = new MockFactoryRuntime(now);
+  const isApiMode = resolvedMode === "api";
 
   const getDashboardSnapshot = async (filters?: DashboardFilters): Promise<DashboardSnapshot> => {
-    // 真实接口模式下，用 API 同步最新 AGV 列表后再聚合视图模型。
-    if (runtimeStatus.resolvedMode === 'api') {
+    if (isApiMode) {
       try {
         const agvResult = await fetchAgvList({ current: 1, pageSize: 300, status: undefined });
         runtime.replaceAgvByApi(agvResult.list);
       } catch {
-        // API 拉取失败时保留本地状态，避免大屏抖动。
+        // API 拉取失败时保留本地状态
       }
     }
 
@@ -137,7 +126,7 @@ export async function createDataProvider(
       capacity: mergedCapacity,
       statusBar: {
         shift: mergedCapacity.shift,
-        lineLabel: '全产线',
+        lineLabel: "全产线",
         onlineRate: mergedCapacity.onlineRate,
         alertCount: mergedCapacity.alertCount,
         completionRate: mergedCapacity.completionRate,
@@ -160,13 +149,11 @@ export async function createDataProvider(
       return () => window.clearInterval(timer);
     },
     async getAgvList(params) {
-      if (runtimeStatus.resolvedMode === 'api') {
-        return fetchAgvList(params);
-      }
+      if (isApiMode) return fetchAgvList(params);
       return runtime.getAgvList(params);
     },
     async addAgv(payload) {
-      if (runtimeStatus.resolvedMode === 'api') {
+      if (isApiMode) {
         try {
           return await addAgv(payload);
         } catch {
@@ -186,27 +173,59 @@ export async function createDataProvider(
       return fetchCapacityReport(params);
     },
     async acknowledgeAlert(payload) {
+      if (isApiMode) {
+        return apiPost(`/alerts/${payload.alertId}/acknowledge`, {});
+      }
       return runtime.acknowledgeAlert(payload);
     },
     async simulateSensorAlert(payload) {
+      if (isApiMode) {
+        return apiPost("/alerts", payload);
+      }
       return runtime.simulateSensorAlert(payload);
     },
     async assignAlert(payload) {
+      if (isApiMode) {
+        try {
+          return await apiPost(`/alerts/${payload.alertId}/assign`, payload);
+        } catch (e: any) {
+          if (e?.message?.includes("已被他人处理") || e?.message?.includes("Conflict")) {
+            throw new Error("该告警已被他人处理，请刷新后重试");
+          }
+          throw e;
+        }
+      }
       return runtime.assignAlert(payload);
     },
     async updateAlertProcess(payload) {
+      if (isApiMode) {
+        return apiPost(`/alerts/${payload.alertId}/assign`, payload);
+      }
       return runtime.updateAlertProcess(payload);
     },
     async closeAlert(payload) {
+      if (isApiMode) {
+        return apiPost(`/alerts/${payload.alertId}/close`, payload);
+      }
       return runtime.closeAlert(payload);
     },
     async getAlertHistory(params) {
+      if (isApiMode) {
+        return apiGet("/alerts", params);
+      }
       return runtime.getAlertHistory(params);
     },
     async getAlertStatistics(filters) {
       return runtime.getAlertStatistics(filters);
     },
     async getAssignees() {
+      if (isApiMode) {
+        try {
+          return await apiGet<Array<{ id: string; name: string; role: string }>>("/users");
+        } catch {
+          return runtime.getAssignees();
+        }
+      }
       return runtime.getAssignees();
     },
   };

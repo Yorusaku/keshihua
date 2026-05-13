@@ -1,3 +1,4 @@
+import Antd from 'ant-design-vue';
 /**
  * Dashboard 应用入口
  * 文件职责：初始化监控 SDK，装配 Pinia、Vue Router 和 Vue Query。
@@ -45,6 +46,7 @@ const pinia = createPinia();
 app.use(VueQueryPlugin, { queryClient });
 app.use(pinia);
 app.use(router);
+app.use(Antd);
 app.directive('permission', vPermission);
 
 const authStore = useAuthStore();

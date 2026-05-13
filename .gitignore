@@ -67,3 +67,5 @@ temp
 *.bak
 *.backup
 *.orig
+apps/server/stdout.txt  
+apps/server/stderr.txt 

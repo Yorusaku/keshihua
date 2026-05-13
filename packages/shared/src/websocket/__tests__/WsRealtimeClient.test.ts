@@ -60,7 +60,7 @@ describe('WsRealtimeClient', () => {
 
   it('连接后应周期发送 ping', async () => {
     const client = new WsRealtimeClient({
-      url: 'ws://127.0.0.1:8090/ws',
+      url: 'ws://127.0.0.1:8091/ws',
       sourceId: 'test-client',
       heartbeatIntervalMs: 100,
       pongTimeoutMs: 500,
@@ -79,7 +79,7 @@ describe('WsRealtimeClient', () => {
 
   it('收到 pong 后应保持 connected', async () => {
     const client = new WsRealtimeClient({
-      url: 'ws://127.0.0.1:8090/ws',
+      url: 'ws://127.0.0.1:8091/ws',
       sourceId: 'test-client',
       heartbeatIntervalMs: 100,
       pongTimeoutMs: 500,
@@ -106,7 +106,7 @@ describe('WsRealtimeClient', () => {
 
   it('pong 超时应进入 stale 并尝试重连', async () => {
     const client = new WsRealtimeClient({
-      url: 'ws://127.0.0.1:8090/ws',
+      url: 'ws://127.0.0.1:8091/ws',
       sourceId: 'test-client',
       heartbeatIntervalMs: 100,
       pongTimeoutMs: 200,
@@ -125,7 +125,7 @@ describe('WsRealtimeClient', () => {
 
   it('订阅消息应收到业务 envelope', async () => {
     const client = new WsRealtimeClient({
-      url: 'ws://127.0.0.1:8090/ws',
+      url: 'ws://127.0.0.1:8091/ws',
       sourceId: 'test-client',
       enabled: true,
     });

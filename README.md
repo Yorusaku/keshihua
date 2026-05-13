@@ -6,7 +6,9 @@
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7+-blue.svg)](https://www.typescriptlang.org/)
 [![Vue](https://img.shields.io/badge/Vue-3.5+-brightgreen.svg)](https://vuejs.org/)
-[![Vite](https://img.shields.io/badge/Vite-5.4+-646CFF.svg)](https://vitejs.dev/)
+[![Vite](https://img.shields.io/badge/Vite-5.4+-646CFF.svg)]
+[![NestJS](https://img.shields.io/badge/NestJS-10.4+-E0234E.svg)]
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-336791.svg)](https://vitejs.dev/)
 [![pnpm](https://img.shields.io/badge/pnpm-9.0+-orange.svg)](https://pnpm.io/)
 [![Turborepo](https://img.shields.io/badge/Turborepo-2.3+-EF4444.svg)](https://turbo.build/)
 
@@ -327,6 +329,80 @@ const monitor = initMonitor({
 });
 ```
 
+
+### 后端服务（全栈改造 v2.0）
+
+| 分类 | 技术选型 |
+|------|---------|
+| **后端框架** | NestJS 10 + TypeScript |
+| **数据库** | PostgreSQL 15 (TypeORM) |
+| **认证** | Passport JWT + bcryptjs |
+| **WebSocket** | NestJS Gateway (ws) |
+| **API 文档** | Swagger (OpenAPI) |
+| **测试** | Vitest (集成测试) |
+| **部署** | Docker Compose |
+
+#### 数据模式
+
+前端支持三种 API 模式，通过 `VITE_API_MODE` 环境变量切换：
+
+| 模式 | 说明 |
+|------|------|
+| `mock` (默认) | 纯前端 mock，无需后端 |
+| `real` | 强制走真实 API，后端不可用时直接报错 |
+| `auto` (推荐) | 自动探测 `/api/health`，有后端走真实，无后端回退 mock |
+
+## 📡 API 端点
+
+| 模块 | 方法 | 路径 | 说明 |
+|------|------|------|------|
+| **Auth** | POST | `/api/auth/login` | 登录，返回 JWT |
+| | POST | `/api/auth/register` | 注册 |
+| | GET | `/api/auth/me` | 当前用户 |
+| **AGV** | GET | `/api/agvs` | 分页+搜索 |
+| | POST | `/api/agvs` | 新增 |
+| | PATCH | `/api/agvs/:id` | 更新坐标/状态 |
+| | DELETE | `/api/agvs/:id` | 删除 |
+| **Alert** | GET | `/api/alerts` | 分页查询 |
+| | POST | `/api/alerts` | 创建 |
+| | POST | `/api/alerts/:id/acknowledge` | 确认告警 |
+| | POST | `/api/alerts/:id/assign` | 指派处理人(乐观锁) |
+| | POST | `/api/alerts/:id/close` | 关闭(计算 MTTR) |
+| **Capacity** | GET | `/api/capacity/report` | 产能报表 |
+| **Production** | GET | `/api/production-lines` | 产线+区域 |
+| **Health** | GET | `/api/health` | 健康检查 |
+
+## 🚀 本地启动
+
+```bash
+# 1. 安装依赖
+pnpm install
+
+# 2. 启动 PostgreSQL (端口 5434)
+cd apps/server && docker compose up -d
+
+# 3. 建表 + 灌种子数据（仅首次）
+cd apps/server
+npx ts-node src/database/sync.ts
+npx ts-node src/database/seed.ts
+
+# 4. 编译并启动后端 (端口 8091)
+cd apps/server
+npx nest build
+$env:JWT_SECRET='smart-manufacturing-jwt-secret-2024'
+$env:PG_HOST='127.0.0.1'
+$env:PG_PORT='5434'
+$env:PG_USER='postgres'
+$env:PG_PASSWORD='smart123'
+$env:PG_DATABASE='smart_manufacturing'
+node dist/main.js
+
+# 5. 启动前端 (自动探测后端)
+$env:VITE_API_MODE='auto'
+pnpm dev
+```
+
+演示账号：`admin` / `123456`
 ## 🧪 测试策略
 
 项目采用 TDD（Test-Driven Development）开发模式，遵循 **红灯 → 绿灯 → 重构** 的迭代流程。
@@ -340,8 +416,11 @@ const monitor = initMonitor({
 ### 运行测试
 
 ```bash
-# 运行所有测试
+# 前端测试
 pnpm test
+
+# 后端集成测试 (13 用例，覆盖 Auth/AGV/Alert/Capacity/ProductionLine)
+cd apps/server && npx vitest run
 
 # 监听模式
 pnpm --filter @packages/shared test:watch

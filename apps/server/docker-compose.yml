@@ -1,0 +1,20 @@
+﻿version: "3.8"
+services:
+  postgres:
+    image: postgres:15
+    container_name: smart-manufacturing-pg
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: smart123
+      POSTGRES_DB: smart_manufacturing
+    ports:
+      - "5434:5432"
+    volumes:
+      - pgdata_smart:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+volumes:
+  pgdata_smart:

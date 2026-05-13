@@ -20,7 +20,7 @@ function isTestRuntime(): boolean {
 
 function getRealtimeConfig(overrides?: Partial<WsClientConfig>): WsClientConfig {
   const env = import.meta.env;
-  const url = (overrides?.url || env.VITE_REALTIME_WS_URL || 'ws://127.0.0.1:8090/ws') as string;
+  const url = (overrides?.url || env.VITE_REALTIME_WS_URL || 'ws://127.0.0.1:8091/ws') as string;
   const enabled =
     overrides?.enabled ??
     (isTestRuntime() ? false : String(env.VITE_REALTIME_ENABLE ?? '1') !== '0');

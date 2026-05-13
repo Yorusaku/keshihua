@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="login-container">
     <div class="login-card">
       <div class="login-header">
@@ -53,11 +53,7 @@
         </a-form-item>
       </a-form>
 
-      <div class="login-tips">
-        <p>测试账号：</p>
-        <p>admin / admin123（管理员）</p>
-        <p>zhangwork / 123456（设备工程师）</p>
-      </div>
+      
     </div>
   </div>
 </template>
@@ -147,3 +143,4 @@ async function handleLogin() {
   margin: 4px 0;
 }
 </style>
+

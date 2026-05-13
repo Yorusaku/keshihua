@@ -30,7 +30,7 @@
 </script>
 
 <style scoped>
-@import '@packages/shared/styles/tokens.css';
+@import '@packages/shared/src/styles/tokens.css';
 
 .industrial-layout {
   width: 100%;

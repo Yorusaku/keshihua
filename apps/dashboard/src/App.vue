@@ -26,7 +26,8 @@
 </script>
 
 <style>
-@import '@packages/shared/styles/tokens.css';
+@import 'ant-design-vue/dist/reset.css';
+@import '@packages/shared/src/styles/tokens.css';
 
 /* 全局样式：统一工业大屏字体和基础背景。 */
 body {
