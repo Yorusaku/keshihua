@@ -75,6 +75,31 @@ export class DataBuffer {
   }
 
   /**
+   * 用一整帧数据替换缓冲池内容
+   * @param data 当前帧的完整 AGV 列表
+   * @description 与 pushData 的增量覆盖不同，此方法会丢弃本帧中不存在的 AGV，
+   * 使下游渲染层能够识别已离线节点；传入空数组表示当前帧没有任何 AGV。
+   */
+  replaceAll(data: IAgvData[]): void {
+    // 🛡️ 防御性编程：空值拦截（null/undefined 视为无效输入，保留原数据）
+    if (!data) {
+      return;
+    }
+
+    const nextMap = new Map<string, IAgvData>();
+    for (let i = 0; i < data.length; i++) {
+      const current = data[i];
+      if (!current) {
+        continue;
+      }
+      nextMap.set(current.id, current);
+    }
+
+    // ✅ 整帧替换：直接换掉 Map 引用，避免逐条删除的额外开销
+    this.bufferMap = nextMap;
+  }
+
+  /**
    * 获取缓冲池快照（用于渲染层读取）
    * @returns 浅拷贝的数组（外部修改不影响原缓冲池）
    * @description 配合 ReadonlyAgvSnapshot 类型，确保外部无法修改对象属性

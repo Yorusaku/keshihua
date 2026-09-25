@@ -37,6 +37,13 @@ export interface AgvRendererOptions {
    * - 默认：idle=绿色, moving=蓝色, error=红色
    */
   colorMap?: AgvStatusColorMap;
+
+  /**
+   * 离线节点回收间隔（帧）
+   * - 默认：60（约 1 秒）
+   * - 每 N 帧比对一次快照与节点池，销毁已离线的 AGV 节点
+   */
+  offlineReapIntervalFrames?: number;
 }
 
 /**

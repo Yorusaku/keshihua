@@ -232,7 +232,8 @@ function syncAgvMap(agvListInput: AgvLiveItem[]): void {
   }
 
   agvMapRef.value = nextMap;
-  DataBuffer.getInstance().pushData(slimAgv);
+  // 全量帧替换缓冲池，渲染层据此识别并回收已离线节点。
+  DataBuffer.getInstance().replaceAll(slimAgv);
 }
 
 function initRenderer(): void {
@@ -240,7 +241,8 @@ function initRenderer(): void {
     return;
   }
   const renderer = markRaw(new AgvRenderer(stageContainerRef.value));
-  renderer.startAnimationLoop(() => Array.from(agvMapRef.value.values()));
+  // 渲染层直接从缓冲池按帧取数，绕开 Vue 响应式依赖。
+  renderer.startAnimationLoop(() => DataBuffer.getInstance().getSnapshot());
   rendererRef.value = renderer;
 }
 

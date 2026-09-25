@@ -112,15 +112,54 @@ describe('DataBuffer - Core Functionality', () => {
       expect(snapshot1[0]).toBe(snapshot2[0]); // ✅ 相同引用（性能关键点）
     });
 
-    // 📋 测试用例 3：修改快照数组不影響原缓冲池（隔离性验证）
-    it('当修改 getSnapshot 返回的数组内容时，不应影响原缓冲池数据', () => {
+    // 📋 测试用例 3：修改快照数组结构不影响原缓冲池（数组层隔离性验证）
+    it('当修改 getSnapshot 返回的数组结构时，不应影响原缓冲池数据', () => {
       buffer.pushData(testAgvData);
 
       const snapshot1 = buffer.getSnapshot();
-      snapshot1[0].x = 9999; // ✅ 修改快照
+      snapshot1.pop(); // ✅ 只修改快照数组结构，不触碰内部对象
 
       const snapshot2 = buffer.getSnapshot();
-      expect(snapshot2[0].x).toBe(100); // ✅ 不应被修改（原缓冲池不变）
+      expect(snapshot2.length).toBe(1); // ✅ 数组层隔离：原缓冲池仍有数据
+      expect(snapshot2[0]).toBe(testAgvData);
+    });
+  });
+
+  describe('replaceAll', () => {
+    // 📋 测试用例 1：整帧替换会移除本帧不存在的 AGV
+    it('当整帧替换时，本帧不存在的 AGV 应该被移除', () => {
+      buffer.pushData([
+        { ...testAgvData, id: 'agv-001' },
+        { ...testAgvData, id: 'agv-002' },
+      ]);
+
+      buffer.replaceAll([{ ...testAgvData, id: 'agv-002', x: 500 }]);
+
+      const snapshot = buffer.getSnapshot();
+      expect(snapshot.length).toBe(1);
+      expect(snapshot[0].id).toBe('agv-002');
+      expect(snapshot[0].x).toBe(500);
+    });
+
+    // 📋 测试用例 2：空数组表示当前帧没有任何 AGV
+    it('当整帧替换传入空数组时，缓冲池应该被清空', () => {
+      buffer.pushData(testAgvData);
+
+      buffer.replaceAll([]);
+
+      expect(buffer.getSnapshot().length).toBe(0);
+    });
+
+    // 📋 测试用例 3：空值输入保留原数据（防御性编程）
+    it('当整帧替换传入 null 或 undefined 时，应该保留原数据', () => {
+      buffer.pushData(testAgvData);
+
+      buffer.replaceAll(null as any);
+      buffer.replaceAll(undefined as any);
+
+      const snapshot = buffer.getSnapshot();
+      expect(snapshot.length).toBe(1);
+      expect(snapshot[0]).toBe(testAgvData);
     });
   });
 

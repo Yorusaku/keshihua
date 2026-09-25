@@ -6,7 +6,7 @@
  * 📌 重构说明：
  * - 闭包扁平化：将 renderLoop 提升为类的私有箭头函数方法
  * - 配置剥离：stroke/strokeWidth 从 createNode 提取到 nodeConfig
- * - TODO 注释：僵尸节点回收预埋（Milestone 2）
+ * - 离线节点回收：按帧间隔比对快照与节点池，销毁已离线 AGV 节点
  *
  * 📌 监控扩展（任务三）：
  * - WebGL 上下文丢失监听（webglcontextlost）
@@ -38,6 +38,12 @@ export class AgvRenderer {
   // 📦 节点池（Map<string, ZRenderDisplayable>）
   private animations: Map<string, ZRenderDisplayable> = new Map();
 
+  // 📦 节点状态快照（用于仅在状态变化时更新填充色）
+  private nodeStatus: Map<string, 'idle' | 'moving' | 'error'> = new Map();
+
+  // 📦 已渲染帧计数（用于按间隔触发离线节点回收）
+  private frameCount: number = 0;
+
   // 📦 requestAnimationFrame 标识
   private animationFrameId: number = 0;
 
@@ -49,6 +55,7 @@ export class AgvRenderer {
     radius: 20,
     stroke: '#fff',
     strokeWidth: 2,
+    offlineReapIntervalFrames: 60,
     color: {
       idle: '#4CAF50',    // 空闲状态：绿色
       moving: '#2196F3',  // 运输中：蓝色
@@ -120,9 +127,15 @@ export class AgvRenderer {
     // ✅ 初始化 ZRender 实例（绑定到容器）
     this.renderer = zrender.init(container);
 
-    // ✅ 合并用户配置（扁平化合并，不影响原对象）
+    // ✅ 合并用户配置（字段映射，避免 options 键名与内部配置不一致而失效）
     if (options) {
-      this.nodeConfig = { ...this.nodeConfig, ...options };
+      this.nodeConfig = {
+        ...this.nodeConfig,
+        radius: options.nodeRadius ?? this.nodeConfig.radius,
+        color: options.colorMap ?? this.nodeConfig.color,
+        offlineReapIntervalFrames:
+          options.offlineReapIntervalFrames ?? this.nodeConfig.offlineReapIntervalFrames,
+      };
     }
 
     // ✅ 任务三：绑定上下文丢失监听器
@@ -157,6 +170,8 @@ export class AgvRenderer {
     // 📌 从 getDataSnapshot 拉取最新快照（批量数据）
     const snapshot = this.getDataSnapshot?.() || [];
 
+    this.frameCount += 1;
+
     // ✅ 遍历快照，批量更新节点坐标（朴素 for 循环，性能最优）
     const len = snapshot.length;
     for (let i = 0; i < len; i++) {
@@ -172,6 +187,13 @@ export class AgvRenderer {
         // ✅ 节点不存在：创建新节点（按需创建，懒加载）
         shape = this.createNode(data);
         this.animations.set(data.id, shape);
+      } else if (this.nodeStatus.get(data.id) !== data.status) {
+        // ✅ 节点存在且状态变化：仅更新填充色（避免每帧无谓的属性写入）
+        shape.attr({
+          style: {
+            fill: this.nodeConfig.color[data.status],
+          },
+        } as zrender.CircleProps);
       }
 
       // ✅ 节点存在：仅更新坐标（O(1) 更新）
@@ -183,17 +205,51 @@ export class AgvRenderer {
           cy: data.y,
         },
       } as zrender.CircleProps);
+
+      this.nodeStatus.set(data.id, data.status);
     }
 
-    // 📌 TODO: [Milestone 2] 周期性比对快照与 this.animations 的 keys，回收并销毁已离线的 AGV 节点（zrender.dispose()），防止僵尸节点内存泄漏。
-    // ✅ 僵尸节点回收（待实现 Milestone 2）
-    // - 比对 snapshot IDs 与 this.animations.keys()
-    // - 销毁不在快照中的节点（离线 AGV）
-    // - 周期性执行（如每 100 帧）以降低性能开销
+    // ✅ 离线节点回收：按固定帧间隔比对，避免每帧构建集合的额外开销
+    const reapInterval = Math.max(1, this.nodeConfig.offlineReapIntervalFrames);
+    if (this.frameCount % reapInterval === 0) {
+      this.reapOfflineNodes(snapshot);
+    }
 
     // ✅ 递归调用 requestAnimationFrame（下一帧）
     this.animationFrameId = requestAnimationFrame(this.renderLoop);
   };
+
+  /**
+   * 回收离线节点（私有方法）
+   * @param snapshot 当前帧完整快照
+   * @description 本帧快照中不存在的 AGV 视为已离线，从画布与节点池中一并移除，
+   * 避免长时间运行后僵尸节点持续累积导致内存与重绘开销上升。
+   */
+  private reapOfflineNodes(snapshot: readonly { id: string }[]): void {
+    if (this.animations.size === 0) {
+      return;
+    }
+
+    const aliveIds = new Set<string>();
+    for (let i = 0; i < snapshot.length; i++) {
+      const data = snapshot[i];
+      if (data) {
+        aliveIds.add(data.id);
+      }
+    }
+
+    for (const id of this.animations.keys()) {
+      if (aliveIds.has(id)) {
+        continue;
+      }
+      const shape = this.animations.get(id);
+      if (shape) {
+        this.renderer?.remove(shape);
+      }
+      this.animations.delete(id);
+      this.nodeStatus.delete(id);
+    }
+  }
 
   /**
    * 创建新节点（私有方法）
@@ -265,6 +321,8 @@ export class AgvRenderer {
 
     // ✅ 清空节点池（释放内存）
     this.animations.clear();
+    this.nodeStatus.clear();
+    this.frameCount = 0;
 
     // ✅ 销毁 ZRender 实例
     this.renderer.dispose();
