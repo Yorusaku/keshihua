@@ -1,4 +1,4 @@
-import type { Router, RouteLocationNormalized } from 'vue-router';
+import type { Router } from 'vue-router';
 import { useAuthStore } from './store';
 import type { UserRole, PermissionAction } from './types';
 
@@ -9,12 +9,16 @@ export interface RouteMetaAuth {
 }
 
 export function setupAuthGuard(router: Router): void {
-  router.beforeEach((to, _from, next) => {
+  router.beforeEach(async (to, _from, next) => {
     const authStore = useAuthStore();
     const meta = to.meta as RouteMetaAuth;
 
     if (!meta.requiresAuth) {
       return next();
+    }
+
+    if (!authStore.isAuthenticated) {
+      await authStore.restoreSession();
     }
 
     if (!authStore.isAuthenticated) {

@@ -1,5 +1,6 @@
 ﻿import { addAgv, fetchAgvList } from "../network/api/agv";
 import { fetchCapacityData } from "../network/queries/capacity";
+import { deleteAgv as deleteAgvApi } from "../network/api/agv";
 import { fetchCapacityReport } from "../network/api/report";
 import { fetchSensorTimeSeries } from "../network/api/sensor";
 import { agvSyncBus } from "../websocket/AgvSyncBus";
@@ -18,9 +19,40 @@ import type {
   DashboardSnapshot,
   ProviderResolvedMode,
   ProviderRuntimeStatus,
+  SensorAlertItem,
 } from "./types";
 import type { IAgvData } from "../websocket/types";
-import { apiPost, apiGet } from "../network/api-client";
+import { apiPost, apiGet, configureApiMode } from "../network/api-client";
+
+function normalizeAlert(raw: any): SensorAlertItem {
+  const createdAt = raw.createdAt ?? raw.timestamp ?? Date.now();
+  const toTimestamp = (value: unknown) =>
+    typeof value === "number" ? value : value ? new Date(String(value)).getTime() : undefined;
+  const processingStatus = raw.processingStatus === "pending" ? "unassigned" : raw.processingStatus;
+  return {
+    ...raw,
+    timestamp: toTimestamp(createdAt) || Date.now(),
+    acknowledgedAt: toTimestamp(raw.acknowledgedAt),
+    assignedAt: toTimestamp(raw.assignedAt),
+    closedAt: toTimestamp(raw.closedAt),
+    assignedTo: raw.assignedTo ?? raw.assignedToId,
+    assignedBy: raw.assignedBy ?? raw.assignedById,
+    closedBy: raw.closedBy ?? raw.closedById,
+    processingStatus: processingStatus || "unassigned",
+    mttr: raw.mttr,
+    processRecords: (raw.processRecords || []).map((record: any) => ({
+      ...record,
+      operator: record.operator ?? record.userId,
+      content: record.content ?? record.detail ?? "",
+      timestamp: toTimestamp(record.timestamp ?? record.createdAt) || Date.now(),
+    })),
+  };
+}
+
+function normalizeAlertResult(raw: any): any {
+  if (raw && raw.alert) return { ...raw, alert: normalizeAlert(raw.alert) };
+  return { alert: normalizeAlert(raw) };
+}
 
 function createRuntimeStatus(
   requestedMode: DataProviderMode,
@@ -35,8 +67,15 @@ function createRuntimeStatus(
   };
 }
 
+function resolveRequestedMode(options: CreateDataProviderOptions): DataProviderMode {
+  const envMode = import.meta.env.VITE_API_MODE;
+  if (options.mode === "api" || options.mode === "mock") return options.mode;
+  if (envMode === "api" || envMode === "mock") return envMode;
+  return options.mode || "auto";
+}
+
 async function resolveMode(options: CreateDataProviderOptions): Promise<ProviderResolvedMode> {
-  const mode = options.mode || "auto";
+  const mode = resolveRequestedMode(options);
   if (mode === "api") return "api";
   if (mode === "mock") return "mock";
 
@@ -48,7 +87,9 @@ async function resolveMode(options: CreateDataProviderOptions): Promise<Provider
       method: "GET",
       headers: { "x-data-provider-probe": "1" },
     });
-    return response.ok ? "api" : "mock";
+    if (!response.ok) return "mock";
+    const body = await response.json().catch(() => null);
+    return body?.ok === true ? "api" : "mock";
   } catch {
     return "mock";
   }
@@ -93,19 +134,24 @@ export async function createDataProvider(
   options: CreateDataProviderOptions = {}
 ): Promise<DataProvider> {
   const now = options.now || (() => Date.now());
+  const requestedMode = resolveRequestedMode(options);
   const resolvedMode = await resolveMode(options);
-  const runtimeStatus = createRuntimeStatus(options.mode || "auto", resolvedMode, now());
+  configureApiMode(resolvedMode);
+  const runtimeStatus = createRuntimeStatus(requestedMode, resolvedMode, now());
   const runtime = new MockFactoryRuntime(now);
   const isApiMode = resolvedMode === "api";
 
   const getDashboardSnapshot = async (filters?: DashboardFilters): Promise<DashboardSnapshot> => {
+    let apiAlerts: SensorAlertItem[] | null = null;
     if (isApiMode) {
-      try {
-        const agvResult = await fetchAgvList({ current: 1, pageSize: 300, status: undefined });
-        runtime.replaceAgvByApi(agvResult.list);
-      } catch {
-        // API 拉取失败时保留本地状态
-      }
+      const agvResult = await fetchAgvList({ current: 1, pageSize: 300, status: undefined });
+      runtime.replaceAgvByApi(agvResult.list);
+      const alertResult = await apiGet<{ total: number; list: unknown[] }>("/alerts", {
+        current: 1,
+        pageSize: 300,
+        lineId: filters?.lineId === "all" ? undefined : filters?.lineId,
+      });
+      apiAlerts = alertResult.list.map(normalizeAlert);
     }
 
     runtime.nextAgvFrame();
@@ -121,7 +167,7 @@ export async function createDataProvider(
     const snapshot: DashboardSnapshot = {
       lines: runtime.getLines(),
       agv: runtime.getAgvByFilters(filters),
-      alerts: runtime.getAlerts(filters),
+      alerts: apiAlerts ?? runtime.getAlerts(filters),
       timeline: runtime.getTimeline(filters),
       capacity: mergedCapacity,
       statusBar: {
@@ -154,17 +200,14 @@ export async function createDataProvider(
     },
     async addAgv(payload) {
       if (isApiMode) {
-        try {
-          return await addAgv(payload);
-        } catch {
-          const created = runtime.addAgv(payload);
-          publishMockAgvCreated(created);
-          return created;
-        }
+        return addAgv(payload);
       }
       const created = runtime.addAgv(payload);
       publishMockAgvCreated(created);
       return created;
+    },
+    async deleteAgv(id) {
+      return deleteAgvApi(id);
     },
     async getSensorTrend(params) {
       return fetchSensorTimeSeries(params);
@@ -174,22 +217,25 @@ export async function createDataProvider(
     },
     async acknowledgeAlert(payload) {
       if (isApiMode) {
-        return apiPost(`/alerts/${payload.alertId}/acknowledge`, {});
+        return normalizeAlertResult(await apiPost(`/alerts/${payload.alertId}/acknowledge`, {}));
       }
       return runtime.acknowledgeAlert(payload);
     },
     async simulateSensorAlert(payload) {
       if (isApiMode) {
-        return apiPost("/alerts", payload);
+        return normalizeAlert(await apiPost("/alerts", payload));
       }
       return runtime.simulateSensorAlert(payload);
     },
     async assignAlert(payload) {
       if (isApiMode) {
         try {
-          return await apiPost(`/alerts/${payload.alertId}/assign`, payload);
+          return normalizeAlertResult(await apiPost(`/alerts/${payload.alertId}/assign`, {
+            assignedToId: payload.assignedTo,
+            version: payload.version ?? 0,
+          }));
         } catch (e: any) {
-          if (e?.message?.includes("已被他人处理") || e?.message?.includes("Conflict")) {
+          if (e?.message?.includes("告警已被他人修改") || e?.message?.includes("Conflict")) {
             throw new Error("该告警已被他人处理，请刷新后重试");
           }
           throw e;
@@ -199,32 +245,63 @@ export async function createDataProvider(
     },
     async updateAlertProcess(payload) {
       if (isApiMode) {
-        return apiPost(`/alerts/${payload.alertId}/assign`, payload);
+        return normalizeAlertResult(
+          await apiPost(`/alerts/${payload.alertId}/process`, {
+            operator: payload.operator,
+            action: payload.action,
+            content: payload.content,
+            rootCause: payload.rootCause,
+            actionTaken: payload.actionTaken,
+          })
+        );
       }
       return runtime.updateAlertProcess(payload);
     },
     async closeAlert(payload) {
       if (isApiMode) {
-        return apiPost(`/alerts/${payload.alertId}/close`, payload);
+        return normalizeAlertResult(
+          await apiPost(`/alerts/${payload.alertId}/close`, {
+            resolution: payload.resolution,
+            rootCause: payload.rootCause,
+            actionTaken: payload.actionTaken,
+          })
+        );
       }
       return runtime.closeAlert(payload);
     },
     async getAlertHistory(params) {
       if (isApiMode) {
-        return apiGet("/alerts", params);
+        const result = await apiGet<{ total: number; list: unknown[] }>("/alerts", params);
+        return { total: result.total, list: result.list.map(normalizeAlert) };
       }
       return runtime.getAlertHistory(params);
     },
     async getAlertStatistics(filters) {
+      if (isApiMode) {
+        const result = await apiGet<{ total: number; list: SensorAlertItem[] }>("/alerts", {
+          current: 1,
+          pageSize: 1000,
+          lineId: filters?.lineId,
+        });
+        const list = result.list;
+        const resolved = list.filter((item) => item.status === "resolved");
+        return {
+          totalCount: result.total,
+          activeCount: list.filter((item) => item.status === "active").length,
+          resolvedCount: resolved.length,
+          avgMttr: resolved.length
+            ? resolved.reduce((sum, item) => sum + (item.mttr || 0), 0) / resolved.length
+            : 0,
+          byLine: {},
+          bySeverity: {},
+          topFrequentSensors: [],
+        };
+      }
       return runtime.getAlertStatistics(filters);
     },
     async getAssignees() {
       if (isApiMode) {
-        try {
-          return await apiGet<Array<{ id: string; name: string; role: string }>>("/users");
-        } catch {
-          return runtime.getAssignees();
-        }
+        return apiGet<Array<{ id: string; name: string; role: string }>>("/users");
       }
       return runtime.getAssignees();
     },

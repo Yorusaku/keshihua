@@ -47,6 +47,10 @@ export class WsRealtimeClient {
     return this.config.sourceId;
   }
 
+  public setUrl(url: string): void {
+    this.config.url = url;
+  }
+
   public connect(): void {
     if (!this.config.enabled) {
       return;

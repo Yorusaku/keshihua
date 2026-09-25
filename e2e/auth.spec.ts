@@ -4,7 +4,7 @@ const ADMIN = { username: 'admin', password: '123456' };
 
 test.describe('Dashboard E2E', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/account/login');
+    await page.goto('/login');
   });
 
   test('login page renders correctly', async ({ page }) => {
@@ -18,8 +18,8 @@ test.describe('Dashboard E2E', () => {
     await page.fill('input[placeholder="请输入用户名"]', ADMIN.username);
     await page.fill('input[placeholder="请输入密码"]', ADMIN.password);
     await page.click('button[type="submit"]');
-    await page.waitForURL('**/dashboard**', { timeout: 15000 }).catch(() => {});
-    await expect(page).not.toHaveURL(/\/account\/login/);
+    await page.waitForURL('http://localhost:5173/', { timeout: 15000 }).catch(() => {});
+    await expect(page).not.toHaveURL(/\/login/);
   });
 
   test('login with invalid password shows error', async ({ page }) => {
@@ -31,14 +31,14 @@ test.describe('Dashboard E2E', () => {
 
   test('unauthenticated access redirects to login', async ({ page }) => {
     await page.goto('/');
-    await page.waitForURL('**/account/login**', { timeout: 10000 });
+    await page.waitForURL('**/login**', { timeout: 10000 });
     await expect(page.locator('h1')).toContainText('智造远望');
   });
 });
 
 test.describe('Admin E2E', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('http://127.0.0.1:5174/account/login');
+    await page.goto('http://localhost:5174/login');
   });
 
   test('admin login page renders', async ({ page }) => {
@@ -50,7 +50,7 @@ test.describe('Admin E2E', () => {
     await page.fill('input[placeholder="请输入密码"]', ADMIN.password);
     await page.click('button[type="submit"]');
     await page.waitForTimeout(3000);
-    await expect(page).not.toHaveURL(/\/account\/login/);
+    await expect(page).not.toHaveURL(/\/login/);
   });
 });
 

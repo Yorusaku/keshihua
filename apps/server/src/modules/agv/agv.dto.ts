@@ -1,4 +1,5 @@
 ﻿import { IsString, IsNumber, IsOptional, IsIn } from "class-validator";
+import { Type } from "class-transformer";
 
 export class CreateAgvDto {
   @IsString() id: string;
@@ -23,8 +24,8 @@ export class UpdateAgvDto {
 }
 
 export class QueryAgvDto {
-  @IsOptional() @IsNumber() current?: number;
-  @IsOptional() @IsNumber() pageSize?: number;
+  @IsOptional() @Type(() => Number) @IsNumber() current?: number;
+  @IsOptional() @Type(() => Number) @IsNumber() pageSize?: number;
   @IsOptional() @IsString() keyword?: string;
   @IsOptional() @IsString() status?: string;
 }

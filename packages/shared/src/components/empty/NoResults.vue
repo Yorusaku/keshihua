@@ -17,7 +17,7 @@ interface Props {
   showReset?: boolean;
 }
 
-const props = withDefaults(defineProps<Props>(), {
+withDefaults(defineProps<Props>(), {
   title: '暂无搜索结果',
   description: '请尝试调整搜索条件或筛选器',
   showReset: true,

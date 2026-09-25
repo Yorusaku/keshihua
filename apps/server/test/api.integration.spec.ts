@@ -39,6 +39,16 @@ describe('Smart Manufacturing API Integration', () => {
       expect(res.status).toBe(400);
     });
 
+    it('should accept the frontend remember flag', async () => {
+      const res = await api('POST', '/auth/login', {
+        username: 'admin',
+        password: '123456',
+        remember: false,
+      });
+      expect(res.status).toBe(201);
+      expect(res.data.token).toBeDefined();
+    });
+
     it('should return current user', async () => {
       const res = await api('GET', '/auth/me');
       expect(res.status).toBe(200);
@@ -94,7 +104,18 @@ describe('Smart Manufacturing API Integration', () => {
     it('should assign alert', async () => {
       const res = await api('POST', `/alerts/${testAlertId}/assign`, { assignedToId: adminId, version: 0 });
       expect(res.status).toBe(201);
-      expect(res.data.processingStatus).toBe('in_progress');
+      expect(res.data.processingStatus).toBe('assigned');
+      expect(res.data.assignedToId).toBe(adminId);
+      expect(res.data.version).toBe(1);
+    });
+
+    it('should move alert to in_progress with a process record', async () => {
+      const res = await api('POST', `/alerts/${testAlertId}/process`, {
+        operator: 'admin', action: 'processing', content: '已到场排查',
+      });
+      expect(res.status).toBe(201);
+      expect(res.data.alert.processingStatus).toBe('in_progress');
+      expect(res.data.record.action).toBe('processing');
     });
 
     it('should close alert and calculate MTTR', async () => {

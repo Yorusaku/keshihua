@@ -4,7 +4,6 @@
  */
 
 import { message } from 'ant-design-vue';
-import type { ToastOptions } from './types';
 
 /**
  * 显示成功提示

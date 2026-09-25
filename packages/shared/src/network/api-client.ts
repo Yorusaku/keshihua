@@ -1,12 +1,20 @@
-﻿/**
+/**
  * API Client — 统一请求封装
- * 支持 mock/real 双模式，自动注入 Authorization header
+ * 支持 mock/api 双模式，自动注入 Authorization header
  */
 
+import { getStoredAuthToken, clearAuthSession } from "../auth/storage";
+
 const API_BASE = "/api";
+let runtimeMode: "api" | "mock" =
+  (import.meta.env.VITE_API_MODE || "mock") === "api" ? "api" : "mock";
+
+export function configureApiMode(mode: "api" | "mock"): void {
+  runtimeMode = mode;
+}
 
 function getAuthHeaders(): Record<string, string> {
-  const token = typeof localStorage !== "undefined" ? localStorage.getItem("auth_token") : null;
+  const token = getStoredAuthToken();
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (token) headers["Authorization"] = `Bearer ${token}`;
   return headers;
@@ -14,8 +22,7 @@ function getAuthHeaders(): Record<string, string> {
 
 async function handleResponse<T>(res: Response): Promise<T> {
   if (res.status === 401) {
-    localStorage.removeItem("auth_token");
-    localStorage.removeItem("auth_user");
+    clearAuthSession();
     if (typeof window !== "undefined" && !window.location.pathname.includes("/login")) {
       window.location.href = "/login";
     }
@@ -66,5 +73,5 @@ export async function apiDelete<T>(path: string): Promise<T> {
 }
 
 export function isMockMode(): boolean {
-  return ((import.meta as any).env?.VITE_API_MODE || "mock") === "mock";
+  return runtimeMode === "mock";
 }

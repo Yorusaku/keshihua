@@ -133,8 +133,9 @@ function handleClearSelection() {
 async function handleBatchDelete() {
   confirmBatchDelete(selectedRowKeys.value.length, async () => {
     try {
+      const provider = await ensureSharedProvider('auto');
       await withLoading(
-        Promise.resolve(), // Mock: 实际应该调用批量删除 API
+        Promise.all(selectedRowKeys.value.map((id) => provider.deleteAgv(id))),
         '删除中...'
       );
       toast.success(`成功删除 ${selectedRowKeys.value.length} 项`);

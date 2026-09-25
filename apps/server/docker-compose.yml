@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: smart123
       POSTGRES_DB: smart_manufacturing
     ports:
-      - "5434:5432"
+      - "${PG_HOST_PORT:-5434}:5432"
     volumes:
       - pgdata_smart:/var/lib/postgresql/data
     healthcheck:

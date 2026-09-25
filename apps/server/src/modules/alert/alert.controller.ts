@@ -1,6 +1,6 @@
 ﻿import { Controller, Get, Post, Param, Body, Query } from "@nestjs/common";
 import { AlertService } from "./alert.service";
-import { CreateAlertDto, QueryAlertDto, AssignAlertDto, CloseAlertDto } from "./alert.dto";
+import { CreateAlertDto, QueryAlertDto, AssignAlertDto, CloseAlertDto, UpdateAlertProcessDto } from "./alert.dto";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 
 @Controller("alerts")
@@ -25,7 +25,7 @@ export class AlertController {
   @Post(":id/acknowledge")
   async acknowledge(
     @Param("id") id: string,
-    @CurrentUser("id") userId: string,
+    @CurrentUser("sub") userId: string,
   ) {
     return this.alertService.acknowledge(id, userId);
   }
@@ -34,7 +34,7 @@ export class AlertController {
   async assign(
     @Param("id") id: string,
     @Body() dto: AssignAlertDto,
-    @CurrentUser("id") userId: string,
+    @CurrentUser("sub") userId: string,
   ) {
     return this.alertService.assign(id, dto, userId);
   }
@@ -43,8 +43,17 @@ export class AlertController {
   async close(
     @Param("id") id: string,
     @Body() dto: CloseAlertDto,
-    @CurrentUser("id") userId: string,
+    @CurrentUser("sub") userId: string,
   ) {
     return this.alertService.close(id, dto, userId);
+  }
+
+  @Post(":id/process")
+  async process(
+    @Param("id") id: string,
+    @Body() dto: UpdateAlertProcessDto,
+    @CurrentUser("sub") userId: string,
+  ) {
+    return this.alertService.updateProcess(id, dto, userId);
   }
 }

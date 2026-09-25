@@ -1,4 +1,5 @@
 ﻿import { IsString, IsOptional, IsIn, IsNumber, MinLength } from "class-validator";
+import { Type } from "class-transformer";
 
 export class CreateAlertDto {
   @IsString() sensorId: string;
@@ -13,8 +14,8 @@ export class CreateAlertDto {
 }
 
 export class QueryAlertDto {
-  @IsOptional() @IsNumber() current?: number;
-  @IsOptional() @IsNumber() pageSize?: number;
+  @IsOptional() @Type(() => Number) @IsNumber() current?: number;
+  @IsOptional() @Type(() => Number) @IsNumber() pageSize?: number;
   @IsOptional() @IsString() lineId?: string;
   @IsOptional() @IsString() severity?: string;
   @IsOptional() @IsString() status?: string;
@@ -30,4 +31,12 @@ export class CloseAlertDto {
   @IsOptional() @IsString() rootCause?: string;
   @IsOptional() @IsString() actionTaken?: string;
   @IsOptional() @IsString() resolution?: string;
+}
+
+export class UpdateAlertProcessDto {
+  @IsString() operator: string;
+  @IsString() action: string;
+  @IsString() content: string;
+  @IsOptional() @IsString() rootCause?: string;
+  @IsOptional() @IsString() actionTaken?: string;
 }

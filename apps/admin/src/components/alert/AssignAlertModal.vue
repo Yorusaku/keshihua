@@ -61,6 +61,7 @@ async function handleSubmit() {
         alertId: currentAlert.value!.id,
         assignedTo: assignedTo.value!,
         assignedBy: user.value?.id || 'unknown',
+        version: currentAlert.value!.version,
         note: note.value || undefined,
       });
 

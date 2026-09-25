@@ -6,16 +6,39 @@ import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import type { LoginPayload, User, PermissionAction, UserRole } from "./types";
 import { mockLogin, mockRefreshToken } from "./mockAuth";
+import { refreshRealtimeAuth, closeRealtime } from "../websocket/realtime";
+import {
+  clearAuthSession,
+  getStoredAuthRefreshToken,
+  getStoredAuthToken,
+  getStoredAuthUser,
+  persistAuthSession,
+} from "./storage";
 
 const API_BASE = "/api";
 
 function isMockMode(): boolean {
-  return (import.meta as any).env?.VITE_API_MODE === "mock";
+  return import.meta.env.VITE_API_MODE === "mock";
 }
 
 function getAuthHeaders(): Record<string, string> {
-  const token = localStorage.getItem("auth_token");
+  const token = getStoredAuthToken();
   return token ? { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" } : { "Content-Type": "application/json" };
+}
+
+function normalizeUser(raw: any): User {
+  const permissions = raw.permissions?.length
+    ? raw.permissions
+    : raw.role === 'admin'
+      ? [{ resource: '*', actions: ['view', 'create', 'edit', 'delete', 'assign', 'close', 'export'] }]
+      : [
+          { resource: 'dashboard', actions: ['view'] },
+          { resource: 'agv', actions: ['view', 'edit'] },
+          { resource: 'sensor', actions: ['view'] },
+          { resource: 'alert', actions: ['view', 'assign', 'close'] },
+          { resource: 'report', actions: ['view', 'export'] },
+        ];
+  return { ...raw, permissions, email: raw.email || '', createdAt: raw.createdAt ? new Date(raw.createdAt).getTime() : Date.now() };
 }
 
 async function apiLogin(payload: LoginPayload) {
@@ -37,6 +60,8 @@ async function apiGetMe() {
   return res.json();
 }
 
+let restoreSessionPromise: Promise<void> | null = null;
+
 export const useAuthStore = defineStore("auth", () => {
   const user = ref<User | null>(null);
   const token = ref<string | null>(null);
@@ -52,25 +77,27 @@ export const useAuthStore = defineStore("auth", () => {
     try {
       if (isMockMode()) {
         const response = await mockLogin(payload);
-        user.value = response.user;
+        user.value = normalizeUser(response.user);
         token.value = response.token;
         refreshToken.value = response.refreshToken;
         loginTime.value = Date.now();
         expiresAt.value = Date.now() + response.expiresIn * 1000;
       } else {
         const response = await apiLogin(payload);
-        user.value = response.user;
+        user.value = normalizeUser(response.user);
         token.value = response.token;
         refreshToken.value = response.refreshToken;
         loginTime.value = Date.now();
         expiresAt.value = Date.now() + (response.expiresIn || 7200) * 1000;
       }
+      if (!isMockMode()) refreshRealtimeAuth(token.value);
 
-      if (payload.remember) {
-        localStorage.setItem("auth_token", token.value!);
-        localStorage.setItem("auth_refresh_token", refreshToken.value!);
-        localStorage.setItem("auth_user", JSON.stringify(user.value));
-      }
+      persistAuthSession({
+        token: token.value!,
+        refreshToken: refreshToken.value,
+        user: user.value,
+        remember: !!payload.remember,
+      });
     } finally {
       isLoading.value = false;
     }
@@ -82,9 +109,8 @@ export const useAuthStore = defineStore("auth", () => {
     refreshToken.value = null;
     loginTime.value = undefined;
     expiresAt.value = undefined;
-    localStorage.removeItem("auth_token");
-    localStorage.removeItem("auth_refresh_token");
-    localStorage.removeItem("auth_user");
+    clearAuthSession();
+    closeRealtime();
   }
 
   async function refreshAccessToken(): Promise<void> {
@@ -108,27 +134,40 @@ export const useAuthStore = defineStore("auth", () => {
   }
 
   async function restoreSession(): Promise<void> {
-    const savedToken = localStorage.getItem("auth_token");
-    const savedRefreshToken = localStorage.getItem("auth_refresh_token");
-    const savedUser = localStorage.getItem("auth_user");
-
-    if (!isMockMode() && savedToken) {
-      try {
-        const me = await apiGetMe();
-        user.value = me;
-        token.value = savedToken;
-        refreshToken.value = savedRefreshToken;
-        return;
-      } catch {
-        logout();
-        return;
-      }
+    if (restoreSessionPromise) {
+      return restoreSessionPromise;
     }
 
-    if (savedToken && savedRefreshToken && savedUser) {
-      token.value = savedToken;
-      refreshToken.value = savedRefreshToken;
-      user.value = JSON.parse(savedUser);
+    restoreSessionPromise = (async () => {
+      const savedToken = getStoredAuthToken();
+      const savedRefreshToken = getStoredAuthRefreshToken();
+      const savedUser = getStoredAuthUser();
+
+      if (!isMockMode() && savedToken) {
+        try {
+          const me = await apiGetMe();
+          user.value = normalizeUser(me);
+          token.value = savedToken;
+          refreshToken.value = savedRefreshToken;
+          refreshRealtimeAuth(savedToken);
+          return;
+        } catch {
+          await logout();
+          return;
+        }
+      }
+
+      if (savedToken && savedRefreshToken && savedUser) {
+        token.value = savedToken;
+        refreshToken.value = savedRefreshToken;
+        user.value = JSON.parse(savedUser);
+      }
+    })();
+
+    try {
+      await restoreSessionPromise;
+    } finally {
+      restoreSessionPromise = null;
     }
   }
 

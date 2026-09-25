@@ -1,5 +1,6 @@
 import { createDomainRealtimeBus } from './DomainRealtimeBus';
 import { createWsRealtimeClient } from './WsRealtimeClient';
+import { getStoredAuthToken } from "../auth/storage";
 import {
   createRealtimeSourceId,
   type RealtimeConnectionState,
@@ -18,9 +19,12 @@ function isTestRuntime(): boolean {
   return mode === 'test' || vitestFlag === 'true';
 }
 
-function getRealtimeConfig(overrides?: Partial<WsClientConfig>): WsClientConfig {
+function getRealtimeConfig(overrides?: Partial<WsClientConfig>, tokenOverride?: string | null): WsClientConfig {
   const env = import.meta.env;
-  const url = (overrides?.url || env.VITE_REALTIME_WS_URL || 'ws://127.0.0.1:8091/ws') as string;
+  const token = tokenOverride ?? getStoredAuthToken();
+  const pageUrl = typeof window !== 'undefined' ? window.location : null;
+  const baseUrl = (overrides?.url || env.VITE_REALTIME_WS_URL || `${pageUrl?.protocol === 'https:' ? 'wss:' : 'ws:'}//${pageUrl?.host || '127.0.0.1:8091'}/ws`) as string;
+  const url = token ? `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}` : baseUrl;
   const enabled =
     overrides?.enabled ??
     (isTestRuntime() ? false : String(env.VITE_REALTIME_ENABLE ?? '1') !== '0');
@@ -47,8 +51,20 @@ export function getRealtimeClient(overrides?: Partial<WsClientConfig>) {
   wsClientSingleton.onConnectionState((state) => {
     connectionListeners.forEach((listener) => listener(state));
   });
-  wsClientSingleton.connect();
+  if (typeof localStorage === 'undefined' || getStoredAuthToken()) {
+    wsClientSingleton.connect();
+  }
   return wsClientSingleton;
+}
+
+export function refreshRealtimeAuth(token?: string | null): void {
+  const client = getRealtimeClient();
+  const config = getRealtimeConfig(undefined, token);
+  client.disconnect();
+  client.setUrl(config.url);
+  if (config.enabled && token) {
+    client.connect();
+  }
 }
 
 export function getDomainRealtimeBus(overrides?: Partial<WsClientConfig>) {
@@ -78,9 +94,6 @@ export function closeRealtime(): void {
   if (wsClientSingleton) {
     wsClientSingleton.disconnect();
   }
-  wsClientSingleton = null;
-  domainBusSingleton = null;
-  connectionListeners.clear();
 }
 
 export function setRealtimeReporter(reporter: WsClientReporter | null): void {

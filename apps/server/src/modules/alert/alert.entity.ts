@@ -2,7 +2,7 @@
 
 export type AlertStatus = "active" | "acknowledged" | "resolved";
 export type AlertSeverity = "critical" | "high" | "medium";
-export type ProcessingStatus = "pending" | "in_progress" | "review" | "completed";
+export type ProcessingStatus = "unassigned" | "assigned" | "in_progress" | "completed";
 
 @Entity("alerts")
 export class Alert {
@@ -45,7 +45,7 @@ export class Alert {
   @Column({ name: "assigned_by_id", length: 36, nullable: true })
   assignedById: string;
 
-  @Column({ name: "processing_status", type: "varchar", length: 20, nullable: true })
+  @Column({ name: "processing_status", type: "varchar", length: 20, default: "unassigned" })
   processingStatus: ProcessingStatus;
 
   @Column({ name: "root_cause", type: "text", nullable: true })

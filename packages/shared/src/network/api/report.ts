@@ -49,11 +49,7 @@ export function getMockReportData(): ICapacityReportData[] {
 
 export async function fetchCapacityReport(params?: ICapacityReportParams): Promise<ICapacityReportData[]> {
   if (!isMockMode()) {
-    try {
-      return await apiGet<ICapacityReportData[]>("/capacity/report", params);
-    } catch {
-      // API 失败回退 mock
-    }
+    return apiGet<ICapacityReportData[]>("/capacity/report", params);
   }
 
   await new Promise((resolve) => setTimeout(resolve, 500));

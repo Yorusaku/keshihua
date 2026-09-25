@@ -28,7 +28,9 @@ export class AgvController {
 
   @Post()
   async create(@Body() dto: CreateAgvDto) {
-    return this.agvService.create(dto);
+    const agv = await this.agvService.create(dto);
+    this.realtimeGateway.broadcastAgvCreated(agv);
+    return agv;
   }
 
   @Get(":id")

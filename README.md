@@ -1,486 +1,73 @@
-# 智造远望 - 智慧工厂可视化大屏
+# 智造远望
 
-<div align="center">
+面向制造场景的监控大屏、管理后台和 API 服务。仓库使用 pnpm workspace 与 Turborepo 管理 Vue 3 前端、NestJS 后端及共享包。
 
-**面向制造企业的生产监控与协同管理系统**
+## 仓库结构
 
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.7+-blue.svg)](https://www.typescriptlang.org/)
-[![Vue](https://img.shields.io/badge/Vue-3.5+-brightgreen.svg)](https://vuejs.org/)
-[![Vite](https://img.shields.io/badge/Vite-5.4+-646CFF.svg)]
-[![NestJS](https://img.shields.io/badge/NestJS-10.4+-E0234E.svg)]
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-336791.svg)](https://vitejs.dev/)
-[![pnpm](https://img.shields.io/badge/pnpm-9.0+-orange.svg)](https://pnpm.io/)
-[![Turborepo](https://img.shields.io/badge/Turborepo-2.3+-EF4444.svg)](https://turbo.build/)
+| 路径               | 职责                                                      |
+| ------------------ | --------------------------------------------------------- |
+| `apps/dashboard`   | 监控大屏，Vue 3、Pinia、Vue Query、ZRender；开发端口 5173 |
+| `apps/admin`       | 管理后台，Vue 3、Ant Design Vue、AntV S2；开发端口 5174   |
+| `apps/server`      | NestJS API、WebSocket 与 PostgreSQL 持久化；默认端口 8091 |
+| `packages/shared`  | 认证、数据 Provider、查询、网络、实时通信与通用 UI        |
+| `packages/charts`  | ZRender AGV 渲染器与 ECharts 趋势图                       |
+| `packages/monitor` | 前端错误与性能监控 SDK                                    |
+| `packages/config`  | TypeScript 与 Vite 基础配置                               |
+| `e2e`              | Playwright 浏览器测试                                     |
+| `docs`             | 项目说明、设计稿与 TDD 过程文档                           |
 
-</div>
+主要数据流：Dashboard 和 Admin 通过 `@packages/shared` 使用 Provider、认证和实时通信能力；API 服务提供 `/api` 路由及 `/ws` WebSocket 端点。Provider 支持 `auto`、`api`、`mock` 三种模式。模式解析优先级为：显式 `options.mode` 传入 `api`/`mock`，其次环境变量 `VITE_API_MODE`，最后才回退 `auto`；`auto` 会探测同源 `/api/health`，并校验响应 JSON 的 `ok === true`，不能用普通页面响应冒充 API 可用。
 
-## 📖 项目简介
+## 本地开发
 
-"智造远望"是一套面向制造企业的生产监控与协同管理系统，前端包含 **Dashboard 大屏**和 **Admin 后台**两端。
+要求 Node.js 20+、pnpm 9+。以下命令可单独启动前端开发服务器；完整数据链路还取决于 API 连通性与 Provider 模式。PowerShell 中从仓库根目录执行：
 
-- **Dashboard 大屏**：负责展示产能态势、AGV 运行状态和传感器异常，强调实时性和低干扰
-- **Admin 后台**：负责设备台账、策略配置和报表分析，强调可追踪和可维护
-
-整体形成 **"监控发现问题 → 定位影响范围 → 告警确认 → 后台追踪处理"** 的业务闭环。
-
-### 核心价值
-
-项目的核心价值不在于堆砌可视化组件，而在于：
-- 把高频实时渲染、低频统计分析和后台支撑能力拆成边界清晰的前端模块
-- 保证大屏流畅性、状态一致性和跨端协同效率
-- 通过 Monorepo 架构沉淀可复用的基础设施
-
-## 🏗️ 技术架构
-
-### 技术栈
-
-| 分类 | 技术选型 |
-|------|---------|
-| **前端框架** | Vue 3 + TypeScript + Composition API |
-| **构建工具** | Vite 5 + Turborepo 2 |
-| **包管理** | pnpm workspace (Monorepo) |
-| **状态管理** | Pinia + @tanstack/vue-query |
-| **可视化** | ECharts + ZRender + AntV S2 |
-| **UI 组件** | Ant Design Vue (Admin) |
-| **工具库** | @vueuse/core |
-| **测试框架** | Vitest + @vue/test-utils |
-
-### 架构设计
-
-```text
-smart-manufacturing-mono/
-├── apps/
-│   ├── dashboard/            # 工业监控驾驶舱（实时态势感知）
-│   └── admin/                # 闭环支撑后台（设备管理与报表分析）
-├── packages/
-│   ├── shared/               # 共享层：provider、query、types、websocket
-│   ├── charts/               # 图表渲染能力：zrender / echarts
-│   ├── monitor/              # 端侧监控：异常采集与性能观测
-│   └── config/               # 基础配置：TS / Vite 等
-├── docs/                     # TDD 文档与实施记录
-├── turbo.json                # Turborepo 配置
-└── pnpm-workspace.yaml       # pnpm workspace 配置
-```
-
-### 核心设计理念
-
-#### 1. 状态分治策略
-
-- **服务端状态**（vue-query）：低频、可缓存、以接口为准的数据
-  - 产能概览、传感器趋势、报表查询
-  - 自动处理缓存、轮询、重试和失效
-  
-- **客户端状态**（Pinia）：与界面交互直接相关的状态
-  - 筛选条件、详情抽屉、聚焦对象、深链参数
-  
-- **高频实时数据**（Map/DataBuffer）：不进入深响应式链路
-  - AGV 坐标和运行态
-  - 通过 `requestAnimationFrame` 驱动渲染，避免对 Vue 渲染系统造成持续压力
-
-#### 2. 渲染链路分离
-
-| 场景 | 渲染方案 | 适用数据 |
-|------|---------|---------|
-| 宏观趋势与统计 | ECharts | 产能趋势、传感器时序、概览指标 |
-| AGV 主舞台 | ZRender + RAF | 高频坐标更新、实时运行态 |
-| 后台大体量报表 | Canvas 透视表 | 复杂行列结构、高密度数据展示 |
-
-#### 3. 数据流转链路
-
-```text
-┌─────────────────────────────────────────────────────────────┐
-│                      服务端状态链路                           │
-│  vue-query → 缓存/轮询/重试 → 页面消费聚合结果                │
-└─────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────┐
-│                      高频渲染链路                             │
-│  WebSocket → DataBuffer/Map → RAF → ZRender 节点更新         │
-└─────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────┐
-│                      闭环协同链路                             │
-│  异常卡片 → 大屏确认 → 深链跳转 → 后台追踪（带上下文）        │
-└─────────────────────────────────────────────────────────────┘
-```
-
-## 🚀 快速开始
-
-### 环境要求
-
-- Node.js >= 20.0.0
-- pnpm >= 9.0.0
-
-### 安装依赖
-
-```bash
+```powershell
 pnpm install
-```
-
-### 开发模式
-
-```bash
-# 启动所有应用
-pnpm dev
-
-# 启动 Dashboard 大屏
 pnpm --filter smart-dashboard dev
-
-# 启动 Admin 后台
 pnpm --filter @smart/admin dev
 ```
 
-### 构建生产版本
+分别访问 `http://localhost:5173` 和 `http://localhost:5174`。两个 `dev` 命令应在不同终端运行。前端 mock 管理员账号为 `admin` / `admin123`，仅用于本地演示。
 
-```bash
-# 构建所有应用
-pnpm build
+### 单独运行后端
 
-# 构建指定应用
-pnpm --filter smart-dashboard build
-pnpm --filter @smart/admin build
+后端使用 PostgreSQL 15。`apps/server/docker-compose.yml` 提供本地数据库，宿主机端口由 `PG_HOST_PORT` 控制，默认 5434；若该端口已被占用，可用 `$env:PG_HOST_PORT='5435'` 启动容器，并让后端 `PG_PORT` 指向同一个端口。先启动数据库，并在运行后端的终端设置 `JWT_SECRET`、`PG_HOST`、`PG_PORT`、`PG_USER`、`PG_PASSWORD`、`PG_DATABASE`；其中数据库变量需与实际数据库配置一致，`JWT_SECRET` 至少 16 个字符。不要将真实密钥或密码提交到仓库。
+
+```powershell
+docker compose -f apps/server/docker-compose.yml up -d
+pnpm --filter @smart/server dev
 ```
 
-### 运行测试
+首次使用空的本地开发库时，先运行 `pnpm --filter @smart/server exec ts-node src/database/sync.ts` 创建表，再启动后端；该脚本启用 TypeORM `synchronize: true`，不要用于有价值的数据。启动后可检查 `http://127.0.0.1:8091/api/health`。`pnpm --filter @smart/server seed` 会清空并重建多张表的演示数据，**仅在确认可丢弃现有数据时运行**。种子库管理员账号为 `admin` / `123456`，与前端 mock 账号不同。
 
-```bash
-# 运行所有测试
-pnpm test
+Dashboard 和 Admin 的开发服务器都已把 `/api` 与 `/ws` 代理到 `http://127.0.0.1:8091`，因此同源请求可以直接联调。真实模式联调时建议显式设置 `$env:VITE_API_MODE='api'`：这样 `VITE_API_MODE` 会覆盖调用方传入的 `auto`，即使健康探测暂时失败也会按真实模式发起请求，而不是静默切换到 mock。`auto` 模式只用于需要自动降级的场景。
 
-# 运行指定包的测试
-pnpm --filter @packages/shared test
-pnpm --filter @packages/monitor test
-```
+## 常用命令
 
-### 代码格式化
+在仓库根目录运行；`pnpm dev`、`pnpm build`、`pnpm test` 由 Turbo 调度工作区中定义了相应脚本的包。
 
-```bash
-pnpm format
-```
+| 用途             | 命令                                         |
+| ---------------- | -------------------------------------------- |
+| 启动全部应用     | `pnpm dev`                                   |
+| 构建工作区       | `pnpm build`                                 |
+| 运行工作区测试   | `pnpm test`                                  |
+| 大屏类型检查     | `pnpm --filter smart-dashboard typecheck`    |
+| 后端类型检查     | `pnpm --filter @smart/server typecheck`      |
+| 运行单个包测试   | `pnpm --filter @packages/shared test`        |
+| 运行后台测试一次 | `pnpm --filter @smart/admin exec vitest run` |
+| 运行浏览器测试   | `pnpm exec playwright test`                  |
 
-### 清理构建产物
+后端 `test` 是对运行在 8091 的服务发请求的集成测试，需要数据库、建表、种子数据及服务先就绪。Playwright 配置会尝试启动后端、大屏和后台三个服务，并复用已运行的进程，同样依赖数据库可用；未设置 `PG_PORT` 时默认 5434。后台包的 `test` 脚本是 Vitest 监听模式；执行一次请使用表中的 `vitest run` 命令。根目录 `lint` 会调用后端 `eslint --fix`，会改写源文件；根目录 `clean` 含 POSIX `rm -rf` 和不存在的 `reset` 脚本，不适合作为 Windows 清理命令。
 
-```bash
-pnpm clean
-```
+## 代码入口与文档
 
-## 📦 Monorepo 结构
+- 大屏入口：`apps/dashboard/src/main.ts`、`apps/dashboard/src/views/Dashboard.vue`
+- 后台入口：`apps/admin/src/main.ts`、`apps/admin/src/router/index.ts`
+- 后端入口：`apps/server/src/main.ts`、`apps/server/src/app.module.ts`
+- 数据来源：`packages/shared/src/provider/createDataProvider.ts`
+- 实时通信：`packages/shared/src/websocket/README.md`
+- 闭环实施：[前后端真实闭环实施计划](./docs/前后端真实闭环实施计划.md)
+- 协作约定：[AGENTS.md](./AGENTS.md)；Claude 入口：[CLAUDE.md](./CLAUDE.md)
 
-### Apps
-
-| 应用 | 说明 | 端口 | 技术栈 |
-|------|------|------|--------|
-| **dashboard** | 工业监控驾驶舱 | - | Vue 3 + ZRender + ECharts + Pinia |
-| **admin** | 闭环支撑后台 | - | Vue 3 + Ant Design Vue + Vue Router |
-
-### Packages
-
-| 包 | 说明 | 主要导出 |
-|------|------|---------|
-| **@packages/shared** | 共享层基础设施 | provider、query、types、websocket、network |
-| **@packages/charts** | 图表渲染能力 | ZRender 组件、ECharts 组件 |
-| **@packages/monitor** | 端侧监控 SDK | initMonitor、MonitorConfig、错误采集、性能观测 |
-| **@packages/config** | 基础配置 | TypeScript / Vite 配置 |
-
-## 🎯 核心功能
-
-### Dashboard 大屏
-
-- ✅ **实时 AGV 监控**：基于 ZRender 的高频渲染，支持大量 AGV 节点实时更新
-- ✅ **传感器异常展示**：实时展示传感器异常状态和趋势图
-- ✅ **产能态势看板**：宏观产能概览和趋势分析
-- ✅ **事件轨与告警**：异常事件时间轴和影响范围定位
-- ✅ **跨端协同**：通过 BroadcastChannel 实现跨 Tab/窗口通信
-
-### Admin 后台
-
-- ✅ **设备台账管理**：AGV 设备信息的增删改查
-- ✅ **传感器趋势分析**：基于 LTTB 算法的大数据量时序图
-- ✅ **产能报表查询**：基于 AntV S2 的透视表分析
-- ✅ **策略配置**：设备策略和告警规则配置
-- ✅ **深链跳转**：从大屏带上下文跳转到后台详情页
-
-## 🔧 技术亮点
-
-### 1. 高频实时渲染与响应式边界控制
-
-**问题**：AGV 坐标属于高频变化数据，如果直接放进深响应式状态，更新频率和节点规模一上来，主线程很容易被拖垮。
-
-**解决方案**：
-- 采用 `Map/DataBuffer + requestAnimationFrame + ZRender` 的方式
-- 把高频数据缓冲、节点更新和页面状态管理拆开
-- 只让 Vue 管理需要进入模板的低频控制状态
-
-**价值**：不是简单"绕开框架"，而是在性能敏感场景下主动划清响应式边界。
-
-### 2. 服务端状态与客户端状态分治
-
-**设计原则**：
-- `vue-query` 负责服务端状态快照（缓存、轮询、重试和失效）
-- `Pinia` 只维护客户端交互状态（筛选项、弹窗状态等）
-
-**价值**：减少页面内手写轮询、缓存和重试逻辑，避免把接口数据、筛选项和弹窗状态混在一个 store 里。
-
-### 3. 统一 Provider 与单一数据源策略
-
-**特性**：
-- 支持 `auto | api | mock` 三种模式
-- 运行时只会选择一个最终来源，不做真实接口与 mock 数据混用
-- 页面消费的是统一视图模型，而不是零散接口结果
-
-**价值**：同时满足演示环境、联调环境和正式接口接入阶段的需求，又不会让页面逻辑被分叉条件污染。
-
-### 4. 大数据量趋势图优化
-
-**场景**：传感器时序和产能趋势图的数据量拉长到月级别时，浏览器端渲染成为瓶颈。
-
-**解决方案**：
-- 采用 LTTB（Largest Triangle Three Buckets）降采样算法
-- 优先保留趋势和异常峰值，避免把大量无效重叠点直接压给浏览器
-
-**价值**：提升图表渲染性能，保持数据表达效率。
-
-### 5. 后台大体量报表与透视分析
-
-**场景**：承接多维度、跨产线、跨班次的数据浏览需求。
-
-**解决方案**：
-- 采用 Canvas 透视表方案（AntV S2）
-- 在复杂表头和大数据量下保持更稳定的滚动与交互体验
-
-**价值**：避免传统 DOM 表格在大数据量下的滚动卡顿与样式抖动。
-
-### 6. 零依赖前端监控 SDK
-
-**特性**：
-- 自动捕获 JS 错误、Promise 异常、资源加载失败
-- 性能指标采集（FCP、LCP、FID、CLS）
-- 网络请求监控（fetch/xhr）
-- WebSocket 异常监控
-- 批量上报与队列管理
-
-**价值**：对于大屏这类长时间运行的前端系统，稳定性不是附加项，监控能力补充异常采集、性能指标和网络链路观察，用来支撑现场问题排查。
-
-## 📚 核心模块说明
-
-### @packages/shared
-
-共享层基础设施，提供跨端复用的核心能力。
-
-**主要导出**：
-
-```typescript
-// 监控 SDK
-export { initMonitor } from '@packages/monitor';
-export type { MonitorConfig } from '@packages/monitor';
-
-// 网络层
-export * from './network';  // API、Query Hooks、QueryClient
-
-// WebSocket
-export * from './websocket';  // DataBuffer、AgvSyncBus、MonitorableWebSocket
-
-// Provider
-export * from './provider';  // 统一数据提供器
-```
-
-**核心能力**：
-- **网络层**：基于 `@tanstack/vue-query` 的查询封装
-- **WebSocket**：高频数据缓冲池、跨端通信总线、带监控的 WebSocket
-- **Provider**：统一数据提供器，支持 auto/api/mock 三种模式
-
-### @packages/charts
-
-图表渲染能力包，提供 ZRender 和 ECharts 组件。
-
-**主要导出**：
-
-```typescript
-// ZRender 组件
-export { AgvRenderer } from './zrender';
-
-// ECharts 组件
-export { TrendChart } from './echarts';
-```
-
-### @packages/monitor
-
-零依赖前端监控 SDK，提供异常采集与性能观测能力。
-
-**主要导出**：
-
-```typescript
-export { initMonitor } from './index';
-export type { MonitorConfig, ErrorData, CustomReportData } from './types';
-```
-
-**使用示例**：
-
-```typescript
-import { initMonitor } from '@packages/monitor';
-
-const monitor = initMonitor({
-  dsn: '/api/report',
-  appId: 'dashboard',
-  error: true,
-  performance: true,
-  network: true,
-  debug: import.meta.env.DEV,
-});
-```
-
-
-### 后端服务（全栈改造 v2.0）
-
-| 分类 | 技术选型 |
-|------|---------|
-| **后端框架** | NestJS 10 + TypeScript |
-| **数据库** | PostgreSQL 15 (TypeORM) |
-| **认证** | Passport JWT + bcryptjs |
-| **WebSocket** | NestJS Gateway (ws) |
-| **API 文档** | Swagger (OpenAPI) |
-| **测试** | Vitest (集成测试) |
-| **部署** | Docker Compose |
-
-#### 数据模式
-
-前端支持三种 API 模式，通过 `VITE_API_MODE` 环境变量切换：
-
-| 模式 | 说明 |
-|------|------|
-| `mock` (默认) | 纯前端 mock，无需后端 |
-| `real` | 强制走真实 API，后端不可用时直接报错 |
-| `auto` (推荐) | 自动探测 `/api/health`，有后端走真实，无后端回退 mock |
-
-## 📡 API 端点
-
-| 模块 | 方法 | 路径 | 说明 |
-|------|------|------|------|
-| **Auth** | POST | `/api/auth/login` | 登录，返回 JWT |
-| | POST | `/api/auth/register` | 注册 |
-| | GET | `/api/auth/me` | 当前用户 |
-| **AGV** | GET | `/api/agvs` | 分页+搜索 |
-| | POST | `/api/agvs` | 新增 |
-| | PATCH | `/api/agvs/:id` | 更新坐标/状态 |
-| | DELETE | `/api/agvs/:id` | 删除 |
-| **Alert** | GET | `/api/alerts` | 分页查询 |
-| | POST | `/api/alerts` | 创建 |
-| | POST | `/api/alerts/:id/acknowledge` | 确认告警 |
-| | POST | `/api/alerts/:id/assign` | 指派处理人(乐观锁) |
-| | POST | `/api/alerts/:id/close` | 关闭(计算 MTTR) |
-| **Capacity** | GET | `/api/capacity/report` | 产能报表 |
-| **Production** | GET | `/api/production-lines` | 产线+区域 |
-| **Health** | GET | `/api/health` | 健康检查 |
-
-## 🚀 本地启动
-
-```bash
-# 1. 安装依赖
-pnpm install
-
-# 2. 启动 PostgreSQL (端口 5434)
-cd apps/server && docker compose up -d
-
-# 3. 建表 + 灌种子数据（仅首次）
-cd apps/server
-npx ts-node src/database/sync.ts
-npx ts-node src/database/seed.ts
-
-# 4. 编译并启动后端 (端口 8091)
-cd apps/server
-npx nest build
-$env:JWT_SECRET='smart-manufacturing-jwt-secret-2024'
-$env:PG_HOST='127.0.0.1'
-$env:PG_PORT='5434'
-$env:PG_USER='postgres'
-$env:PG_PASSWORD='smart123'
-$env:PG_DATABASE='smart_manufacturing'
-node dist/main.js
-
-# 5. 启动前端 (自动探测后端)
-$env:VITE_API_MODE='auto'
-pnpm dev
-```
-
-演示账号：`admin` / `123456`
-## 🧪 测试策略
-
-项目采用 TDD（Test-Driven Development）开发模式，遵循 **红灯 → 绿灯 → 重构** 的迭代流程。
-
-### 测试覆盖
-
-- **单元测试**：核心工具函数、数据处理逻辑
-- **组件测试**：Vue 组件的渲染和交互
-- **集成测试**：查询 Hooks、Provider、WebSocket
-
-### 运行测试
-
-```bash
-# 前端测试
-pnpm test
-
-# 后端集成测试 (13 用例，覆盖 Auth/AGV/Alert/Capacity/ProductionLine)
-cd apps/server && npx vitest run
-
-# 监听模式
-pnpm --filter @packages/shared test:watch
-```
-
-## 📖 开发规范
-
-### 代码风格
-
-- 使用 TypeScript 严格模式
-- 使用 Composition API + `<script setup>`
-- 使用 Prettier 格式化代码
-
-### 提交规范
-
-遵循 Conventional Commits 规范：
-
-```bash
-feat: 新增功能
-fix: 修复 bug
-refactor: 重构代码
-docs: 文档更新
-test: 测试相关
-chore: 构建/工具链相关
-```
-
-### 分支策略
-
-- `master`：主分支，保持稳定
-- `feature/*`：功能分支
-- `fix/*`：修复分支
-- `refactor/*`：重构分支
-
-## 🔗 相关文档
-
-- [项目说明文档](./docs/智造远望-项目说明-结构优化版.md)
-- [实施记录](./docs/实施记录-20260321-工业驾驶舱闭环改造.md)
-- [TDD 文档](./docs/tdd/)
-- [WebSocket 模块说明](./packages/shared/src/websocket/README.md)
-
-## 📝 常见问题
-
-### 为什么 AGV 渲染没有直接走 Vue 响应式？
-
-因为高频坐标更新和组件渲染更新不是一个量级的问题。Vue 很适合处理筛选条件、弹窗、详情抽屉这类交互状态，但不适合承担每秒多次、成百上千节点的坐标更新。这里把高频数据放进 `Map/DataBuffer`，再由 `requestAnimationFrame` 驱动 `ZRender` 更新，是为了把数据写入压力和组件更新压力拆开。
-
-### 为什么同时使用 Vue Query 和 Pinia？
-
-因为它们解决的是两类不同问题。`vue-query` 负责服务端状态快照，例如缓存、轮询、重试和失效；`Pinia` 负责界面交互状态，例如当前筛选项、焦点对象和抽屉显隐。这样分层以后，页面代码会更稳定，也更容易解释状态边界。
-
-### 为什么这个项目适合用 Monorepo？
-
-因为 dashboard 和 admin 在展示层差异很大，但底层类型、数据模型、网络查询和监控能力高度重合。Monorepo 可以把这些基础设施抽到共享包里统一维护，既避免复制代码，也降低双端口径不一致的问题。
-
-## 📄 License
-
-MIT
-
----
-
-<div align="center">
-Made with ❤️ by Smart Manufacturing Team
-</div>
+`docs/tdd` 记录历史设计与实施过程；当前行为请以源码、配置和可运行的测试为准。

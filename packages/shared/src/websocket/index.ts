@@ -25,5 +25,6 @@ export {
   getDomainRealtimeBus,
   onRealtimeConnectionState,
   closeRealtime,
+  refreshRealtimeAuth,
   setRealtimeReporter,
 } from './realtime';

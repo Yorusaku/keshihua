@@ -84,6 +84,7 @@ export interface SensorAlertItem {
   closedBy?: string;
   mttr?: number;
   processRecords?: AlertProcessRecord[];
+  version?: number;
 }
 
 export interface CapacitySummary {
@@ -223,6 +224,7 @@ export interface AssignAlertPayload {
   alertId: string;
   assignedTo: string;
   assignedBy: string;
+  version?: number;
   note?: string;
 }
 
@@ -270,6 +272,7 @@ export interface DataProvider {
   ): () => void;
   getAgvList(params: IAgvListParams): Promise<IAgvListResponse>;
   addAgv(payload: IAddAgvPayload): Promise<IAgvData>;
+  deleteAgv(id: string): Promise<void>;
   getSensorTrend(params: ISensorTimeSeriesParams): Promise<ISensorTimeSeriesResponse>;
   getCapacityReport(params?: ICapacityReportParams): Promise<ICapacityReportData[]>;
   acknowledgeAlert(payload: AlertAcknowledgePayload): Promise<AlertAcknowledgeResult>;

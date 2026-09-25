@@ -4,7 +4,6 @@
  */
 
 import { notification } from 'ant-design-vue';
-import type { NotificationOptions } from './types';
 
 /**
  * 显示成功通知

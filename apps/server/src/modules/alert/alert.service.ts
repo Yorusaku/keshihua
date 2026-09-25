@@ -8,7 +8,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { Alert } from "./alert.entity";
 import { AlertProcessRecord } from "./alert-process-record.entity";
-import { CreateAlertDto, QueryAlertDto, AssignAlertDto, CloseAlertDto } from "./alert.dto";
+import { CreateAlertDto, QueryAlertDto, AssignAlertDto, CloseAlertDto, UpdateAlertProcessDto } from "./alert.dto";
 import { AgvService } from "../../modules/agv/agv.service";
 import { RealtimeGateway } from "../../modules/realtime/realtime.gateway";
 
@@ -99,6 +99,7 @@ export class AlertService {
     });
 
     const saved = await this.alertRepository.save(alert);
+    this.realtimeGateway.broadcastAlert("alert.updated", saved);
     return saved;
   }
 
@@ -117,6 +118,7 @@ export class AlertService {
     const saved = await this.alertRepository.save(alert);
 
     await this.addProcessRecord(alertId, userId, "acknowledged", "告警已确认");
+    this.realtimeGateway.broadcastAlert("alert.updated", saved);
 
     return saved;
   }
@@ -133,7 +135,7 @@ export class AlertService {
         assignedToId: dto.assignedToId,
         assignedById: userId,
         assignedAt: new Date(),
-        processingStatus: "in_progress",
+        processingStatus: "assigned",
         version: () => "version + 1",
       })
       .where("id = :id", { id: alertId })
@@ -155,12 +157,7 @@ export class AlertService {
       `告警已分配给 ${dto.assignedToId}`,
     );
 
-    this.realtimeGateway.broadcastAlert("alert.assigned", {
-      alertId,
-      assignedToId: dto.assignedToId,
-      assignedById: userId,
-      timestamp: Date.now(),
-    });
+    this.realtimeGateway.broadcastAlert("alert.assigned", alert);
 
     return alert!;
   }
@@ -202,7 +199,21 @@ export class AlertService {
       `告警已关闭，MTTR: ${saved.mttr} 分钟`,
     );
 
+    this.realtimeGateway.broadcastAlert("alert.closed", saved);
+
     return saved;
+  }
+
+  async updateProcess(alertId: string, dto: UpdateAlertProcessDto, userId: string) {
+    const alert = await this.alertRepository.findOne({ where: { id: alertId } });
+    if (!alert) throw new NotFoundException(`告警 ${alertId} 不存在`);
+    if (dto.rootCause !== undefined) alert.rootCause = dto.rootCause;
+    if (dto.actionTaken !== undefined) alert.actionTaken = dto.actionTaken;
+    if (alert.processingStatus === "assigned") alert.processingStatus = "in_progress";
+    const saved = await this.alertRepository.save(alert);
+    const record = await this.addProcessRecord(alertId, userId, dto.action, dto.content);
+    this.realtimeGateway.broadcastAlert("alert.updated", saved);
+    return { alert: saved, record };
   }
 
   async addProcessRecord(

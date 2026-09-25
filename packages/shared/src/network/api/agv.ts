@@ -47,16 +47,12 @@ const localSourceId = createRealtimeSourceId("agv-api");
 
 export async function fetchAgvList(params: IAgvListParams): Promise<IAgvListResponse> {
   if (!isMockMode()) {
-    try {
-      return await apiGet<IAgvListResponse>("/agvs", {
-        current: params.current,
-        pageSize: params.pageSize,
-        keyword: params.keyword || undefined,
-        status: params.status || undefined,
-      });
-    } catch {
-      // API 失败回退 mock
-    }
+    return apiGet<IAgvListResponse>("/agvs", {
+      current: params.current,
+      pageSize: params.pageSize,
+      keyword: params.keyword || undefined,
+      status: params.status || undefined,
+    });
   }
 
   await new Promise((resolve) => setTimeout(resolve, 500));
@@ -83,21 +79,17 @@ export interface IAddAgvPayload {
 
 export async function addAgv(payload: IAddAgvPayload): Promise<IAgvData> {
   if (!isMockMode()) {
-    try {
-      const result = await apiPost<IAgvData>("/agvs", payload);
-      const envelope: RealtimeEnvelope<IAgvData> = {
-        messageId: createRealtimeMessageId("agv"),
-        topic: "agv.created" as const,
-        sourceId: localSourceId,
-        timestamp: Date.now(),
-        payload: result,
-      };
-      agvSyncBus.broadcastNewAgvEnvelope(envelope);
-      getDomainRealtimeBus().publishEnvelope(envelope);
-      return result;
-    } catch {
-      // API 失败回退 mock
-    }
+    const result = await apiPost<IAgvData>("/agvs", payload);
+    const envelope: RealtimeEnvelope<IAgvData> = {
+      messageId: createRealtimeMessageId("agv"),
+      topic: "agv.created" as const,
+      sourceId: localSourceId,
+      timestamp: Date.now(),
+      payload: result,
+    };
+    agvSyncBus.broadcastNewAgvEnvelope(envelope);
+    getDomainRealtimeBus().publishEnvelope(envelope);
+    return result;
   }
 
   await new Promise((resolve) => setTimeout(resolve, 500));

@@ -146,7 +146,7 @@ defineExpose({
 
       <!-- 提示信息 -->
       <a-alert
-        message="关闭后告警状态将变为"已解决"，系统将自动计算 MTTR"
+        message="关闭后告警状态将变为已解决，系统将自动计算 MTTR"
         type="info"
         show-icon
       />

@@ -3,10 +3,40 @@
  * 文件职责：验证 auto/api/mock 模式选择和闭环核心行为。
  */
 
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createDataProvider } from '../createDataProvider';
 
 describe('createDataProvider', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('模式优先级应为显式 options.mode 高于环境变量', async () => {
+    vi.stubEnv('VITE_API_MODE', 'api');
+
+    const provider = await createDataProvider({
+      mode: 'mock',
+      fetchImpl: vi.fn() as unknown as typeof fetch,
+      now: () => 1710000000000,
+    });
+
+    expect(provider.runtimeStatus.requestedMode).toBe('mock');
+    expect(provider.runtimeStatus.resolvedMode).toBe('mock');
+  });
+
+  it('auto 模式应采纳 VITE_API_MODE 指定的 api', async () => {
+    vi.stubEnv('VITE_API_MODE', 'api');
+
+    const provider = await createDataProvider({
+      mode: 'auto',
+      fetchImpl: vi.fn() as unknown as typeof fetch,
+      now: () => 1710000000000,
+    });
+
+    expect(provider.runtimeStatus.requestedMode).toBe('api');
+    expect(provider.runtimeStatus.resolvedMode).toBe('api');
+  });
+
   it('auto 模式在探测失败时应回退到 mock', async () => {
     const provider = await createDataProvider({
       mode: 'auto',
@@ -23,7 +53,10 @@ describe('createDataProvider', () => {
   it('auto 模式在探测成功时应选择 api', async () => {
     const provider = await createDataProvider({
       mode: 'auto',
-      fetchImpl: vi.fn(async () => new Response(null, { status: 200 })) as unknown as typeof fetch,
+      fetchImpl: vi.fn(async () => new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })) as unknown as typeof fetch,
       now: () => 1710000000000,
     });
 

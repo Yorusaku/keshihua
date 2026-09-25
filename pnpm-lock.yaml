@@ -87,6 +87,9 @@ importers:
       '@vueuse/core':
         specifier: ^12.0.0
         version: 12.8.2(typescript@5.9.3)
+      ant-design-vue:
+        specifier: ^4.2.6
+        version: 4.2.6(vue@3.5.29(typescript@5.9.3))
       pinia:
         specifier: ^2.3.0
         version: 2.3.1(typescript@5.9.3)(vue@3.5.29(typescript@5.9.3))
@@ -118,12 +121,6 @@ importers:
       vue-tsc:
         specifier: ^2.2.0
         version: 2.2.12(typescript@5.9.3)
-
-  apps/realtime-server:
-    dependencies:
-      ws:
-        specifier: ^8.18.0
-        version: 8.19.0
 
   apps/server:
     dependencies:
@@ -2019,9 +2016,6 @@ packages:
   data-urls@7.0.0:
     resolution: {integrity: sha512-23XHcCF+coGYevirZceTVD7NdJOqVn+49IHyxgszm+JIiHLoB2TkmPtsYkNWT1pvRSGkc35L6NHs0yHkN2SumA==}
     engines: {node: ^20.19.0 || ^22.12.0 || >=24.0.0}
-
-  dayjs@1.11.19:
-    resolution: {integrity: sha512-t5EcLVS6QPBNqM2z8fakk/NKel+Xzshgt8FFKAn+qwlD1pzZWxh0nVCrvFK7ZDb6XucZeF9z8C7CBWTRIVApAw==}
 
   dayjs@1.11.20:
     resolution: {integrity: sha512-YbwwqR/uYpeoP4pu043q+LTDLFBLApUP6VxRihdfNTqu4ubqMlGDLd6ErXhEgsyvY0K6nCs7nggYumAN+9uEuQ==}
@@ -5487,7 +5481,7 @@ snapshots:
       array-tree-filter: 2.1.0
       async-validator: 4.2.5
       csstype: 3.2.3
-      dayjs: 1.11.19
+      dayjs: 1.11.20
       dom-align: 1.12.4
       dom-scroll-into-view: 2.0.1
       lodash: 4.17.23
@@ -5934,8 +5928,6 @@ snapshots:
       whatwg-url: 16.0.1
     transitivePeerDependencies:
       - '@noble/hashes'
-
-  dayjs@1.11.19: {}
 
   dayjs@1.11.20: {}
 

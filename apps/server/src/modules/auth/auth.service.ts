@@ -41,7 +41,10 @@ export class AuthService {
         id: user.id,
         username: user.username,
         name: user.name,
+        email: user.email,
         role: user.role,
+        permissions: user.permissions ?? [],
+        createdAt: user.createdAt,
       },
     };
   }
@@ -73,7 +76,10 @@ export class AuthService {
         id: user.id,
         username: user.username,
         name: user.name,
+        email: user.email,
         role: user.role,
+        permissions: user.permissions ?? [],
+        createdAt: user.createdAt,
       },
     };
   }
